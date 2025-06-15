@@ -103,6 +103,19 @@ async def create_workflow(name: str, description: str = None, config_name: str =
         return f"Error creating workflow: {str(e)}"
     except Exception as e:
         return f"Unexpected error: {str(e)}"
+    
+@mcp.tool()
+async def list_workflows() -> str:
+    """List all active pipelines(workflows)."""
+    workflows = workflowManager.list_workflows()
+    if not workflows:
+        return "No active workflows found."
+    
+    result = []
+    for wf in workflows:
+        result.append(f"{wf['id']}: {wf['name']} - {wf['description']}")
+    
+    return "\n".join(result)
 
 @mcp.tool()
 async def launch_workflow(name: str, parameters: dict = None) -> str:
