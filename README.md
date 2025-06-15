@@ -30,7 +30,6 @@ GP-MGMT consists of several key components:
 ### Database Models
 
 - **WorkflowEntity**: Represents an instance of a workflow
-- **WorkflowConfig**: Represents a workflow configuration template
 - **WorkflowStep**: Represents an individual step in a workflow
 
 ## Installation
@@ -51,6 +50,12 @@ GP-MGMT consists of several key components:
 
 ```bash
 python gpmgmt.py
+```
+
+### Running test scripts
+
+```bash
+python test_gpmgmt_tools.py
 ```
 
 ### Available MCP Tools
