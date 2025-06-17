@@ -96,9 +96,9 @@ async def create_workflow(name: str, description: str = None, config_name: str =
 
     try:
         workflow = workflowManager.create_workflow(name, description, config_name)
-        # return f"""Workflow '{workflow["name"]}' created successfully."""
+        return f"""Workflow '{workflow["name"]}' has been successfully created with the following details: {workflow}"""
     
-        return f"""{workflow["id"]}""" #tmp
+        # return f"""{workflow["id"]}""" #tmp
     except ValueError as e:
         return f"Error creating workflow: {str(e)}"
     except Exception as e:
@@ -131,6 +131,31 @@ async def launch_workflow(name: str, parameters: dict = None) -> str:
         # The following instructions are to be followed: \n {workflow["step_execution"]["instructions"]}"""
     except ValueError as e:
         return f"Error launching workflow: {str(e)}"
+    except Exception as e:
+        return f"Unexpected error: {str(e)}"
+    
+@mcp.tool()
+async def update_workflow(name: str, parameters: dict = None) -> str:
+    """Update an existing workflow with the given name and parameters."""
+    if parameters is None:
+        parameters = {}
+
+    try:
+        workflow = workflowManager.update_workflow(name, parameters)
+        return f"""Workflow '{workflow["name"]}' updated successfully."""
+    except ValueError as e:
+        return f"Error updating workflow: {str(e)}"
+    except Exception as e:
+        return f"Unexpected error: {str(e)}"
+    
+@mcp.tool()
+async def cancel_workflow(name: str, reason: str = None) -> str:
+    """Cancel a workflow with the given name."""
+    try:
+        workflow = workflowManager.cancel_workflow(name, reason)
+        return f"""Workflow '{workflow["name"]}' has been cancelled successfully."""
+    except ValueError as e:
+        return f"Error cancelling workflow: {str(e)}"
     except Exception as e:
         return f"Unexpected error: {str(e)}"
 

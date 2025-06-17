@@ -73,9 +73,9 @@ class WorkflowManager:
                 "id": entity.id,
                 "name": entity.name,
                 "description": entity.description,
-                "config_name": entity.config_name,
-                "parameters": entity.parameters,
-                "steps": entity.to_dict()["steps"]
+                "config_name": entity.config_name#,
+                # "parameters": entity.parameters,
+                # "steps": entity.to_dict()["steps"]
             }
             
             # Initialize  first step
