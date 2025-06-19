@@ -52,6 +52,17 @@ GP-MGMT consists of several key components:
 python gpmgmt.py
 ```
 
+### Pipeline management
+#### Currently implemented tools
+- get_available_workflows // get available workflow configurations: names + descriptions
+- get_details_for_workflow // get full details of the configuration
+- create_workflow // based on configuration
+- list_workflows // list all active pipelines
+- launch_workflow // activate pipeline
+- update_workflow // update context
+- cancel_workflow // cancel pipeline. The pipeline will become inactive
+- execute_pipeline_step // activate pipeline step. manual - returns instructions for the user, automatic - executes scripts or invoke other MCP servers
+
 ### Running test scripts
 
 ```bash

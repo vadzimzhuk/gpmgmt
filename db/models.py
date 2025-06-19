@@ -29,9 +29,7 @@ class StepStatus(Enum):
 class WorkflowStatus(Enum):
     CREATED = "created"
     RUNNING = "running"
-    PAUSED = "paused"
     COMPLETED = "completed"
-    FAILED = "failed"
     CANCELLED = "cancelled"
 
 
@@ -147,6 +145,7 @@ class WorkflowEntity:
         self.name = name
         self.config_name = config_name
         self.description = description
+        self.status = WorkflowStatus.CREATED
         self.context = context or {}
         self.steps = steps or []  # List of WorkflowStep objects
         self.is_cancelled = is_cancelled
@@ -215,6 +214,7 @@ class WorkflowEntity:
 
     def cancel(self, reason=None):
         """Cancel the workflow."""
+        self.status = WorkflowStatus.CANCELLED
         self.is_cancelled = True
         self.cancelled_at = datetime.utcnow().isoformat()
         self.add_log(f"Workflow cancelled. Reason: {reason}", "WARNING")
