@@ -1,13 +1,9 @@
 """
 Executor for pipeline steps.
 """
-import json
-import string
-from typing import Dict, Any, Optional
-from db.models import WorkflowEntity, StepStatus
-from pipelineMGMT.parser import WorkflowParser
-# from fastmcp.client.client import Client as FastMCPClient
 
+import string
+from db.models import StepStatus, StepType
 
 class WorkflowExecutor:
     """Executor for workflow steps."""
@@ -15,14 +11,13 @@ class WorkflowExecutor:
     def __init__(self, db_manager):
         """Initialize the workflow executor."""
         self.db_manager = db_manager
-        self.mcp_clients = {}  # Map of server name to MCP client
+        # self.mcp_clients = {}  # Map of server name to MCP client
 
-    def execute_step(self, workflow_id, step_id=None):
+    def execute_step(self, workflow_id, stepName=None):
         """Execute a workflow step."""
-        # Get the step execution details
+
         try:
-            execution = self.db_manager.execute_workflow_step(workflow_id, step_id)
-            # execution = self.execute_workflow_step(workflow_id, step_id)
+            execution = self.execute_workflow_step(workflow_id, stepName)
         except ValueError as e:
             return {"error": str(e)}
 
@@ -31,37 +26,113 @@ class WorkflowExecutor:
         step_type = execution["type"]
 
         # For manual steps, return instructions
-        if step_type == "manual":
-            instructions = self._format_string_with_params(
-                execution["instructions"],
-                entity.context
-            )
+        if step_type == StepType.MANUAL:
+            instructions = self._format_string_with_params(execution["instructions"], entity.context)
 
-            # return instructions only
             return instructions
-            return {
-                "type": "manual",
-                "workflow_id": entity.id,
-                "step_id": step["id"],
-                "instructions": instructions,
-                "status": "pending"
-            }
 
-        elif step_type == "automated":
+        elif step_type == StepType.AUTOMATED:
         # For automated steps, execute the action
             error = f"Automated steps are not implemented"
             entity.add_log(error, "ERROR")
             return {"error": error}
         else:
-            error = f"Unknown step type '{step_type}' for step '{step['id']}'"
+            error = f"Unknown step type '{step_type}' for step '{step.name}'"
             entity.add_log(error, "ERROR")
             entity.save()
             return {"error": error}
+        
+    def execute_workflow_step(self, identifier, step_id=None): #remove
+        """Execute a workflow step."""
+        entity = self.db_manager.get_workflow_entity(identifier)
+        if not entity:
+            raise ValueError(f"Workflow entity '{identifier}' not found")
+
+        if entity.is_cancelled:
+            raise ValueError(f"Cannot execute step for cancelled workflow '{identifier}'")
+
+        # If no step_id is provided, use the current step
+        if not step_id:
+            current_step = entity.get_current_step()
+            if not current_step:
+                current_step = entity.get_first_step()
+                if not current_step:
+                    raise ValueError("No step specified and no current step set")
+            step_id = current_step.name
+
+        # Find the step in the entity's steps
+        workflow_step = self.set_step_status(identifier, step_id, StepStatus.RUNNING)
+
+        return {
+            "entity": entity,
+            "step": workflow_step,
+            "type": workflow_step.step_type,
+            "instructions": workflow_step.instructions if workflow_step.step_type == StepType.MANUAL else None,
+            "action": workflow_step.action if workflow_step.step_type == StepType.AUTOMATED else None
+        }
+    
+    def set_step_status(self, pipeline_id, step_name, status):
+        """Set the status of a workflow step."""
+        entity = self.db_manager.get_workflow_entity(pipeline_id)
+        if not entity:
+            raise ValueError(f"Workflow entity '{pipeline_id}' not found")
+
+        step = entity.get_step(step_name)
+        if not step:
+            raise ValueError(f"Step '{step_name}' not found in workflow entity '{pipeline_id}'")
+
+        step.status = status
+        entity.save()
+        return step
+    
+    def complete_workflow_step(self, identifier, step_id=None, result=None):
+        """Complete a workflow step."""
+        entity = self.db_manager.get_workflow_entity(identifier)
+        if not entity:
+            raise ValueError(f"Workflow entity '{identifier}' not found")
+
+        if entity.is_cancelled:
+            raise ValueError(f"Cannot complete step for cancelled workflow '{identifier}'")
+
+        # If no step_id is provided, use the current step
+        if not step_id:
+            current_step = entity.get_current_step()
+            if not current_step:
+                raise ValueError("No step specified and no current step set")
+            step_id = current_step.name
+
+        # Find the step in the entity's steps
+        workflow_step = entity.get_step(step_id)
+        
+        # If the step doesn't exist in the entity's steps, create it
+        if not workflow_step:
+            raise ValueError(f"Step '{step_id}' not found in workflow entity '{identifier}'")
+        
+        # Store the result in the step
+        if result:
+            workflow_step.result = str(result) if not isinstance(result, str) else result
+
+        # Mark the step as completed
+        entity.complete_step(workflow_step)
+
+        # Update context if result is provided
+        if result and isinstance(result, dict):
+            entity.update_context(result)
+
+        # Find the next pending step
+        pending_steps = entity.get_steps_by_status(StepStatus.PENDING)
+        if pending_steps:
+            entity.start_step(pending_steps[0])
+        else:
+            entity.add_log("All steps completed", "INFO")
+
+        entity.save()
+        return entity
 
     def complete_manual_step(self, workflow_id, step_id, result=None):
         """Complete a manual workflow step."""
         try:
-            entity = self.db_manager.complete_workflow_step(workflow_id, step_id, result)
+            entity = self.complete_workflow_step(workflow_id, step_id, result)
             current_step = entity.get_current_step()
             return {
                 "workflow_id": entity.id,
@@ -111,31 +182,3 @@ class WorkflowExecutor:
                 formatted_dict[key] = value
                 
         return formatted_dict
-
-
-# class MCPClient:
-#     """Client for interacting with MCP servers."""
-
-#     def __init__(self, server_name, base_url=None):
-#         """Initialize the MCP client."""
-#         self.server_name = server_name
-#         self.base_url = base_url or f"http://localhost:3000"
-#         self.client = FastMCPClient(server_name=server_name, base_url=self.base_url)
-
-#     def execute_tool(self, tool_name: str, args: Dict[str, Any]) -> Dict[str, Any]:
-#         """Execute a tool on the MCP server."""
-#         try:
-#             result = self.client.execute_tool(tool_name, args)
-#             return result
-#         except Exception as e:
-#             print(f"Error executing tool '{tool_name}' on server '{self.server_name}': {e}")
-#             return {"status": "error", "message": str(e)}
-
-#     def access_resource(self, uri: str) -> Dict[str, Any]:
-#         """Access a resource on the MCP server."""
-#         try:
-#             result = self.client.access_resource(uri)
-#             return result
-#         except Exception as e:
-#             print(f"Error accessing resource '{uri}' on server '{self.server_name}': {e}")
-#             return {"status": "error", "message": str(e)}

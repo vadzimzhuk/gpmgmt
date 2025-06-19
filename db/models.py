@@ -49,6 +49,19 @@ class WorkflowStep:
     started_at: Optional[str] = None
     completed_at: Optional[str] = None
 
+    
+    @classmethod
+    def from_config(cls, config):
+        step_type = StepType.MANUAL if config["type"] == "manual" else StepType.AUTOMATED
+        
+        return WorkflowStep(
+            name=config["id"],
+            step_type=step_type,
+            conditions=config.get("conditions", {}),
+            instructions=config.get("instructions", ""),
+            mcp_server_config=config.get("action")
+        )
+
 
 class Database:
     """SQLite database manager for workflow entities."""
@@ -350,7 +363,7 @@ class WorkflowEntity:
                     completed_at=step_data.get("completed_at")
                 )
 
-                print(f"Deserialized step: {step.name}")
+                # print(f"Deserialized step: {step.name}")
                 steps.append(step)
         # print("row:" + str(row))
         # print("steps in the row:" + row["steps"])
@@ -426,87 +439,5 @@ class WorkflowEntity:
         
         with db.lock:
             db.cursor.execute(query, params)
-            rows = db.cursor.fetchall()
-        return [cls.from_row(db, row) for row in rows]
-
-
-class WorkflowConfig:
-    """Model for workflow configuration."""
-
-    def __init__(self, db, name, description=None, context=None, steps=None,
-                 created_at=None, updated_at=None):
-        """Initialize a workflow configuration."""
-        self.db = db
-        self.name = name
-        self.description = description
-        self.context = context or {}
-        self.steps = steps or []
-        self.created_at = created_at or datetime.utcnow().isoformat()
-        self.updated_at = updated_at or self.created_at
-
-    def save(self):
-        """Save the workflow configuration to the database."""
-        self.updated_at = datetime.utcnow().isoformat()
-        
-        # Use the lock to ensure thread safety
-        with self.db.lock:
-            self.db.cursor.execute('''
-            INSERT OR REPLACE INTO workflow_configs (
-                name, description, context, steps, created_at, updated_at
-            ) VALUES (?, ?, ?, ?, ?, ?)
-            ''', (
-                self.name,
-                self.description,
-                json.dumps(self.context),
-                json.dumps(self.steps),
-                self.created_at,
-                self.updated_at
-            ))
-            
-            self.db.conn.commit()
-        return self
-
-    def to_dict(self):
-        """Convert the workflow configuration to a dictionary."""
-        return {
-            "name": self.name,
-            "description": self.description,
-            "context": self.context,
-            "steps": self.steps,
-            "created_at": self.created_at,
-            "updated_at": self.updated_at
-        }
-
-    @classmethod
-    def from_row(cls, db, row):
-        """Create a workflow configuration from a database row."""
-        if not row:
-            return None
-            
-        return cls(
-            db=db,
-            name=row["name"],
-            description=row["description"],
-            context=json.loads(row["context"]),
-            steps=json.loads(row["steps"]),
-            created_at=row["created_at"],
-            updated_at=row["updated_at"]
-        )
-
-    @classmethod
-    def get_by_name(cls, db, name):
-        """Get a workflow configuration by name."""
-        with db.lock:
-            db.cursor.execute(
-                "SELECT * FROM workflow_configs WHERE name = ?", (name,)
-            )
-            row = db.cursor.fetchone()
-        return cls.from_row(db, row)
-
-    @classmethod
-    def list_all(cls, db):
-        """List all workflow configurations."""
-        with db.lock:
-            db.cursor.execute("SELECT * FROM workflow_configs")
             rows = db.cursor.fetchall()
         return [cls.from_row(db, row) for row in rows]

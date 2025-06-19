@@ -26,7 +26,7 @@ async def main():
     print(f"Testing get_details_for_workflow: '01 Test workflow config'...")
     details = await get_details_for_workflow("01 Test workflow config")
     print("Workflow details:")
-    # print(details)
+
     if not details:
         print("❌")
         return
@@ -43,7 +43,6 @@ async def main():
         return
     else:
         print("✅")
-    # print(creation_result)
     print("\n---\n")
 
     # List all active pipelines
@@ -51,19 +50,18 @@ async def main():
     workflows_str = WorkflowManager().list_workflows()
     print("Active workflows:")
     print(workflows_str)
-    # for wf in workflows_str:
-        # print(f"• {wf['id']}: {wf['name']}")
-    # print(str(workflows_str))
 
     print("\n---\n")
 
     # Launch the workflow
     print(f"Testing launch_workflow('{str(creation_result)}')...")
     launch_result = await launch_workflow(str(creation_result))
-    print("Launch result:")
-    print(launch_result)
-    # else:
-    #     print("No workflows found to test get_details_for_workflow or launch_workflow.")
+
+    print("Pipeline has been launched: " + launch_result["name"])
+    print("Current step inctructions: " + str(launch_result["step_execution"]))
+    print("Current steps execution status:")
+    for step in launch_result["steps"]:
+        print(f"• {step['name']}: ({step['status']})")
 
 if __name__ == "__main__":
     asyncio.run(main())

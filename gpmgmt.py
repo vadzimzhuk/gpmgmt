@@ -66,13 +66,11 @@ async def list_workflows() -> str:
     return "\n".join(result)
 
 @mcp.tool()
-async def launch_workflow(name: str, context: dict = None) -> str:
+async def launch_workflow(name: str) -> str:
     """Launch a workflow with the given name and context."""
-    if context is None:
-        context = {}
 
     try:
-        workflow = workflowManager.launch_workflow(name, context)
+        workflow = workflowManager.launch_workflow(name)
         # return f"""Workflow '{workflow["name"]}' launched successfully. Current step is: {workflow["current_step"]}."""
         return {
             "id": workflow["id"],
