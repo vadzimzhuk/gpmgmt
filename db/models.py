@@ -86,7 +86,7 @@ class Database:
             description TEXT,
             created_at TEXT NOT NULL,
             updated_at TEXT NOT NULL,
-            parameters TEXT NOT NULL,
+            context TEXT NOT NULL,
             steps TEXT NOT NULL,
             is_cancelled INTEGER NOT NULL DEFAULT 0,
             cancelled_at TEXT,
@@ -99,7 +99,7 @@ class Database:
         CREATE TABLE IF NOT EXISTS workflow_configs (
             name TEXT PRIMARY KEY,
             description TEXT,
-            parameters TEXT NOT NULL,
+            context TEXT NOT NULL,
             steps TEXT NOT NULL,
             created_at TEXT NOT NULL,
             updated_at TEXT NOT NULL
@@ -126,7 +126,7 @@ class WorkflowEntity:
     """Model for workflow entity."""
 
     def __init__(self, db, id=None, name=None, config_name=None, description=None,
-                 parameters=None, steps=None, is_cancelled=False, cancelled_at=None,
+                 context=None, steps=None, is_cancelled=False, cancelled_at=None,
                  logs=None, created_at=None, updated_at=None):
         """Initialize a workflow entity."""
         self.db = db
@@ -134,7 +134,7 @@ class WorkflowEntity:
         self.name = name
         self.config_name = config_name
         self.description = description
-        self.parameters = parameters or {}
+        self.context = context or {}
         self.steps = steps or []  # List of WorkflowStep objects
         self.is_cancelled = is_cancelled
         self.cancelled_at = cancelled_at
@@ -145,6 +145,8 @@ class WorkflowEntity:
     def save(self):
         """Save the workflow entity to the database."""
         self.updated_at = datetime.utcnow().isoformat()
+
+        # print(f"Saving workflow entity: {str(self)}")
         
         # Convert steps to a serializable format
         serialized_steps = []
@@ -163,12 +165,13 @@ class WorkflowEntity:
             }
             serialized_steps.append(step_dict)
         
+        # print(f"Serialized steps: {json.dumps(serialized_steps, indent=2)}")
         # Use the lock to ensure thread safety
         with self.db.lock:
             self.db.cursor.execute('''
             INSERT OR REPLACE INTO workflow_entities (
                 id, name, config_name, description, created_at, updated_at,
-                parameters, steps, is_cancelled, cancelled_at, logs
+                context, steps, is_cancelled, cancelled_at, logs
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ''', (
                 self.id,
@@ -177,7 +180,7 @@ class WorkflowEntity:
                 self.description,
                 self.created_at,
                 self.updated_at,
-                json.dumps(self.parameters),
+                json.dumps(self.context),
                 json.dumps(serialized_steps),
                 1 if self.is_cancelled else 0,
                 self.cancelled_at,
@@ -204,11 +207,11 @@ class WorkflowEntity:
         self.add_log(f"Workflow cancelled. Reason: {reason}", "WARNING")
         return self
 
-    def update_parameters(self, parameters):
-        """Update workflow parameters."""
-        self.parameters.update(parameters)
+    def update_context(self, context):
+        """Update workflow context."""
+        self.context.update(context)
         self.updated_at = datetime.utcnow().isoformat()
-        self.add_log(f"Parameters updated: {parameters}", "INFO")
+        self.add_log(f"context updated: {context}", "INFO")
         return self
 
     def complete_step(self, step_or_step_id):
@@ -222,6 +225,7 @@ class WorkflowEntity:
             step.status = StepStatus.COMPLETED
             step.completed_at = datetime.utcnow().isoformat()
             self.add_log(f"Step completed: {step.name}", "INFO")
+            self.save()
         return self
 
     def fail_step(self, step_or_step_id, error=None):
@@ -246,9 +250,9 @@ class WorkflowEntity:
             
         if step:
             # Reset any currently running steps
-            for s in self.steps:
-                if s.status == StepStatus.RUNNING:
-                    s.status = StepStatus.PENDING
+            # for s in self.steps:
+            #     if s.status == StepStatus.RUNNING:
+            #         s.status = StepStatus.PENDING
             
             step.status = StepStatus.RUNNING
             step.started_at = datetime.utcnow().isoformat()
@@ -276,6 +280,8 @@ class WorkflowEntity:
     
     def get_first_step(self):
         """Get the first step in the workflow."""
+        if not self.steps:
+            print("No steps in the workflow.")
         return self.steps[0] if self.steps else None
 
     def get_next_pending_step(self):
@@ -307,7 +313,7 @@ class WorkflowEntity:
             "description": self.description,
             "created_at": self.created_at,
             "updated_at": self.updated_at,
-            "parameters": self.parameters,
+            "context": self.context,
             "steps": serialized_steps,
             "is_cancelled": self.is_cancelled,
             "cancelled_at": self.cancelled_at,
@@ -322,9 +328,15 @@ class WorkflowEntity:
         
         # Deserialize steps
         steps = []
-        if "steps" in row and row["steps"]:
+
+        # steps_data = row["steps"]
+        # print("Steps data: " + steps_data)
+        # print("Steps in the row: " + row["steps"])
+        # print("steps" in row)
+        if "steps" in row.keys() and row["steps"]:
             steps_data = json.loads(row["steps"])
             for step_data in steps_data:
+                # print(f"Deserializing step data: {str(step_data)}")
                 step = WorkflowStep(
                     name=step_data["name"],
                     step_type=StepType(step_data["step_type"]),
@@ -337,7 +349,12 @@ class WorkflowEntity:
                     started_at=step_data.get("started_at"),
                     completed_at=step_data.get("completed_at")
                 )
+
+                print(f"Deserialized step: {step.name}")
                 steps.append(step)
+        # print("row:" + str(row))
+        # print("steps in the row:" + row["steps"])
+        # print(f"Deserialized steps: {steps}")
         
         return cls(
             db=db,
@@ -347,7 +364,7 @@ class WorkflowEntity:
             description=row["description"],
             created_at=row["created_at"],
             updated_at=row["updated_at"],
-            parameters=json.loads(row["parameters"]),
+            context=json.loads(row["context"]),
             steps=steps,
             is_cancelled=bool(row["is_cancelled"]),
             cancelled_at=row["cancelled_at"],
@@ -362,6 +379,7 @@ class WorkflowEntity:
                 "SELECT * FROM workflow_entities WHERE id = ?", (workflow_id,)
             )
             row = db.cursor.fetchone()
+            # print(f"Retrieved row: {dict(row)}")
         return cls.from_row(db, row)
 
     @classmethod
@@ -415,13 +433,13 @@ class WorkflowEntity:
 class WorkflowConfig:
     """Model for workflow configuration."""
 
-    def __init__(self, db, name, description=None, parameters=None, steps=None,
+    def __init__(self, db, name, description=None, context=None, steps=None,
                  created_at=None, updated_at=None):
         """Initialize a workflow configuration."""
         self.db = db
         self.name = name
         self.description = description
-        self.parameters = parameters or {}
+        self.context = context or {}
         self.steps = steps or []
         self.created_at = created_at or datetime.utcnow().isoformat()
         self.updated_at = updated_at or self.created_at
@@ -434,12 +452,12 @@ class WorkflowConfig:
         with self.db.lock:
             self.db.cursor.execute('''
             INSERT OR REPLACE INTO workflow_configs (
-                name, description, parameters, steps, created_at, updated_at
+                name, description, context, steps, created_at, updated_at
             ) VALUES (?, ?, ?, ?, ?, ?)
             ''', (
                 self.name,
                 self.description,
-                json.dumps(self.parameters),
+                json.dumps(self.context),
                 json.dumps(self.steps),
                 self.created_at,
                 self.updated_at
@@ -453,7 +471,7 @@ class WorkflowConfig:
         return {
             "name": self.name,
             "description": self.description,
-            "parameters": self.parameters,
+            "context": self.context,
             "steps": self.steps,
             "created_at": self.created_at,
             "updated_at": self.updated_at
@@ -469,7 +487,7 @@ class WorkflowConfig:
             db=db,
             name=row["name"],
             description=row["description"],
-            parameters=json.loads(row["parameters"]),
+            context=json.loads(row["context"]),
             steps=json.loads(row["steps"]),
             created_at=row["created_at"],
             updated_at=row["updated_at"]

@@ -1,9 +1,11 @@
 """
-Executor for workflow steps.
+Executor for pipeline steps.
 """
 import json
 import string
 from typing import Dict, Any, Optional
+from db.models import WorkflowEntity, StepStatus
+from pipelineMGMT.parser import WorkflowParser
 # from fastmcp.client.client import Client as FastMCPClient
 
 
@@ -15,15 +17,12 @@ class WorkflowExecutor:
         self.db_manager = db_manager
         self.mcp_clients = {}  # Map of server name to MCP client
 
-    # def register_mcp_client(self, server_name, client):
-    #     """Register an MCP client for a server."""
-    #     self.mcp_clients[server_name] = client
-
     def execute_step(self, workflow_id, step_id=None):
         """Execute a workflow step."""
         # Get the step execution details
         try:
             execution = self.db_manager.execute_workflow_step(workflow_id, step_id)
+            # execution = self.execute_workflow_step(workflow_id, step_id)
         except ValueError as e:
             return {"error": str(e)}
 
@@ -34,8 +33,12 @@ class WorkflowExecutor:
         # For manual steps, return instructions
         if step_type == "manual":
             instructions = self._format_string_with_params(
-                execution["instructions"], entity.parameters
+                execution["instructions"],
+                entity.context
             )
+
+            # return instructions only
+            return instructions
             return {
                 "type": "manual",
                 "workflow_id": entity.id,
@@ -44,44 +47,8 @@ class WorkflowExecutor:
                 "status": "pending"
             }
 
+        elif step_type == "automated":
         # For automated steps, execute the action
-        elif step_type == "automated": # to be implemented
-            # action = execution["action"]
-            # server_name = action["server"] # another MCP server name
-            # tool_name = action["tool"] # another MCP server tool name
-            
-            # # Format the arguments with the workflow parameters
-            # args = {}
-            # if "args" in action:
-            #     args = self._format_dict_with_params(action["args"], entity.parameters)
-
-            # # Check if we have a client for this server
-            # if server_name not in self.mcp_clients:
-            #     error = f"No MCP client registered for server '{server_name}'"
-            #     entity.add_log(error, "ERROR")
-            #     entity.save()
-            #     return {"error": error}
-
-            # # Execute the tool
-            # try:
-            #     client = self.mcp_clients[server_name]
-            #     result = client.execute_tool(tool_name, args)
-                
-            #     # Complete the step with the result
-            #     self.db_manager.complete_workflow_step(entity.id, step["id"], result)
-                
-            #     return {
-            #         "type": "automated",
-            #         "workflow_id": entity.id,
-            #         "step_id": step["id"],
-            #         "result": result,
-            #         "status": "completed"
-            #     }
-            # except Exception as e:
-            #     error = f"Error executing step '{step['id']}': {str(e)}"
-            #     entity.add_log(error, "ERROR")
-            #     entity.save()
-            #     return {"error": error}
             error = f"Automated steps are not implemented"
             entity.add_log(error, "ERROR")
             return {"error": error}
@@ -106,7 +73,7 @@ class WorkflowExecutor:
             return {"error": str(e)}
 
     def _format_string_with_params(self, text, params):
-        """Format a string with workflow parameters."""
+        """Format a string with workflow context."""
         if not text:
             return text
 
@@ -123,7 +90,7 @@ class WorkflowExecutor:
         return formatted_text
 
     def _format_dict_with_params(self, dict_obj, params):
-        """Format a dictionary's values with workflow parameters."""
+        """Format a dictionary's values with workflow context."""
         if not dict_obj:
             return {}
 

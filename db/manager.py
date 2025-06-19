@@ -2,7 +2,7 @@
 Database manager for the workflow management system.
 """
 from db.models import Database, WorkflowEntity, WorkflowConfig, WorkflowStep, StepType, StepStatus
-
+from pipelineMGMT.configManager import ConfigManager
 
 class DatabaseManager:
     """Manager for database operations."""
@@ -26,7 +26,7 @@ class DatabaseManager:
 
     # Workflow Entity Operations
 
-    def create_workflow_entity(self, config, name="Sample name", parameters=None):
+    def create_workflow_entity(self, config, name="Sample name"):
         """Create a new pipeline (workflow entity)."""
         # Get the workflow configuration
         # config = self.get_workflow_config(config_name)
@@ -35,20 +35,49 @@ class DatabaseManager:
         if not config:
             raise ValueError(f"Workflow configuration '{config}' not found")
         
-        # Initialize parameters with defaults from config
-        merged_parameters = {}
-        for param_name, param_config in config["parameters"].items():
-            if "default" in param_config:
-                merged_parameters[param_name] = param_config["default"]
+        # print(f"Creating workflow entity with config: {config}")
+        context = config.get("context", {})
+        # Initialize context with defaults from config
+        # merged_context = {}
+        # for param_name, param_config in config["context"].items():
+        #     if "default" in param_config:
+        #         merged_context[param_name] = param_config["default"]
 
-        # Override with provided parameters
-        if parameters:
-            merged_parameters.update(parameters)
+        # Override with provided context
+        # if context:
+        #     merged_context.update(context)
 
-        # Validate required parameters - should be moved to the launch pipeline method
-        # for param_name, param_config in config.parameters.items():
-        #     if param_config.get("required", False) and param_name not in merged_parameters:
+        # Validate required context - should be moved to the launch pipeline method
+        # for param_name, param_config in config.context.items():
+        #     if param_config.get("required", False) and param_name not in merged_context:
         #         raise ValueError(f"Required parameter '{param_name}' is missing")
+        # stepConfigs = config.get("steps", [])
+        steps = []
+
+        print(f"Steps initialized:")
+        # for step in stepConfigs:
+        #     stepEntity = WorkflowStep(
+        #         name=step["id"],
+        #         step_type=StepType.MANUAL if step["type"] == "manual" else StepType.AUTOMATED,
+        #         conditions=step.get("conditions", {}),
+        #         instructions=step.get("instructions", ""),
+        #         mcp_server_config=step.get("action")
+        #     )
+        #     steps.append(stepEntity)
+        #     print(stepEntity.name)
+        
+        # Initialize steps from config
+        for step_config in config["steps"]:
+            # Check if step conditions match initial context
+            # if self._check_step_conditions(step_config, context):
+                # Create a WorkflowStep object
+            step = self._create_workflow_step_from_config(step_config)
+            steps.append(step)
+            print(step.name)
+            
+        # Set the first matching step as the current step
+        # if len(entity.steps) == 1:
+        #     entity.start_step(step)
 
         # Create the workflow entity
         entity = WorkflowEntity(
@@ -56,43 +85,35 @@ class DatabaseManager:
             name=name,
             config_name=config["name"],
             description=config["description"],
-            parameters=merged_parameters
+            # context=config["context"],
+            steps=steps
         )
 
-        print("Workflow entity created: " + str(entity))
-        
-        # Initialize steps from config
-        for step_config in config["steps"]:
-            # Check if step conditions match initial parameters
-            if self._check_step_conditions(step_config, merged_parameters):
-                # Create a WorkflowStep object
-                step = self._create_workflow_step_from_config(step_config)
-                entity.steps.append(step)
-                
-                # Set the first matching step as the current step
-                if len(entity.steps) == 1:
-                    entity.start_step(step)
+        print(f"{entity.id}: Steps initialized: {len(entity.steps)} steps found")
+
+        # print("Workflow entity created: " + str(entity.to_dict()))
         
         entity.add_log(f"Workflow '{name}' based on '{config["name"]}' created")
         entity.save()
         return entity
     
-    def launch_workflow_entity(self, pipeline_id, parameters=None):
+    def launch_workflow_entity(self, pipeline_id, context=None):
         """Launch an existing workflow entity."""
+        print("Get entity")
         entity = WorkflowEntity.get_by_id(self.db, pipeline_id)
 
         if not entity:
             print(f"Workflow entity with ID '{pipeline_id}' not found")
-            print("Active workflows:")
+            # print("Active workflows:")
             active_entities = WorkflowEntity.list_all(self.db)
             print(str(active_entities))
             raise ValueError(f"Workflow entity with ID '{pipeline_id}' not found")
 
         print(f"Launching workflow entity with ID: {pipeline_id}")
 
-        # Update parameters if provided
-        if parameters:
-            entity.update_parameters(parameters)
+        # Update context if provided
+        if context:
+            entity.update_context(context)
 
         # Check if there are any pending steps to start - moved to executor
         # first_step = entity.get_first_step()
@@ -114,6 +135,25 @@ class DatabaseManager:
             instructions=step_config.get("instructions", ""),
             mcp_server_config=step_config.get("action")
         )
+    
+    def set_step_status(self, pipelineId, stepId, status):
+        #check if step is eligible to be run
+        pipeline = self.get_workflow_entity(pipelineId)
+        if not pipeline:
+            raise ValueError(f"Workflow entity '{pipelineId}' not found")
+        
+        step = None
+
+        if stepId is None:
+            step = pipeline.steps[0] if my_list else None
+        else:
+            step = pipeline.get_step(stepId)
+        if not step:
+            raise ValueError(f"Step '{step}' not found in workflow entity '{pipelineId}'")
+        
+        stepStatus = status
+        step.status = stepStatus
+        pipeline.save()
 
     def get_workflow_entity(self, identifier):
         """Get a workflow entity by ID, name, or description."""
@@ -135,29 +175,31 @@ class DatabaseManager:
         """List all workflow entities with optional filters."""
         return WorkflowEntity.list_all(self.db, filters)
 
-    def update_workflow_entity(self, identifier, parameters):
-        """Update a workflow entity's parameters."""
+    def update_workflow_entity(self, identifier, context):
+        """Update a workflow entity's context."""
         entity = self.get_workflow_entity(identifier)
         if not entity:
             raise ValueError(f"Workflow entity '{identifier}' not found")
 
-        # Update parameters
-        entity.update_parameters(parameters)
+        # Update context
+        entity.update_context(context)
 
         # Get the workflow configuration
-        config = self.get_workflow_config(entity.config_name)
+        config = ConfigManager().get_workflow_config(entity.config_name) #switch from config to entity
         if not config:
             raise ValueError(f"Workflow configuration '{entity.config_name}' not found")
 
         # Get existing step names
         existing_step_names = [step.name for step in entity.steps]
-
-        # Check for steps that should be triggered
+ 
+        # Check if there are any steps that may assume a status of completed
+        completed_steps = entity.get_steps_by_status(StepStatus.COMPLETED)
+        # Check for steps that should/can be triggered
         for step_config in config.steps:
             step_id = step_config["id"]
             if (step_id not in [s.name for s in entity.get_steps_by_status(StepStatus.COMPLETED)] and 
                 step_id not in existing_step_names and
-                self._check_step_conditions(step_config, entity.parameters)):
+                self._check_step_conditions(step_config, entity.context)):
                 # Create a new WorkflowStep object
                 step = self._create_workflow_step_from_config(step_config)
                 entity.steps.append(step)
@@ -172,7 +214,7 @@ class DatabaseManager:
         entity.save()
         return entity
 
-    def execute_workflow_step(self, identifier, step_id=None):
+    def execute_workflow_step(self, identifier, step_id=None): #remove
         """Execute a workflow step."""
         entity = self.get_workflow_entity(identifier)
         if not entity:
@@ -191,29 +233,24 @@ class DatabaseManager:
             step_id = current_step.name
 
         # Get the workflow configuration
-        config = self.get_workflow_config(entity.config_name)
+        config = ConfigManager().get_workflow_config(entity.config_name)
         if not config:
             raise ValueError(f"Workflow configuration '{entity.config_name}' not found")
 
         # Find the step in the configuration
-        step_config = next((s for s in config.steps if s["id"] == step_id), None)
+        step_config = next((s for s in config["steps"] if s["id"] == step_id), None)
         if not step_config:
             raise ValueError(f"Step '{step_id}' not found in workflow configuration")
 
         # Find the step in the entity's steps
         workflow_step = entity.get_step(step_id)
-        
-        # If the step doesn't exist in the entity's steps, create it
-        # if not workflow_step:
-        #     workflow_step = self._create_workflow_step_from_config(step_config)
-        #     entity.steps.append(workflow_step)
 
         # Check if the step is pending
         if workflow_step.status != StepStatus.PENDING:
             raise ValueError(f"Step '{step_id}' is not pending")
 
         # Check if the step conditions are met
-        if not self._check_step_conditions(step_config, entity.parameters):
+        if not self._check_step_conditions(step_config, entity.context):
             raise ValueError(f"Conditions for step '{step_id}' are not met")
 
         # Mark the step as the current step
@@ -244,23 +281,12 @@ class DatabaseManager:
                 raise ValueError("No step specified and no current step set")
             step_id = current_step.name
 
-        # Get the workflow configuration
-        config = self.get_workflow_config(entity.config_name)
-        if not config:
-            raise ValueError(f"Workflow configuration '{entity.config_name}' not found")
-
-        # Find the step in the configuration
-        step_config = next((s for s in config.steps if s["id"] == step_id), None)
-        if not step_config:
-            raise ValueError(f"Step '{step_id}' not found in workflow configuration")
-
         # Find the step in the entity's steps
         workflow_step = entity.get_step(step_id)
         
         # If the step doesn't exist in the entity's steps, create it
         if not workflow_step:
-            workflow_step = self._create_workflow_step_from_config(step_config)
-            entity.steps.append(workflow_step)
+            raise ValueError(f"Step '{step_id}' not found in workflow entity '{identifier}'")
         
         # Store the result in the step
         if result:
@@ -269,14 +295,9 @@ class DatabaseManager:
         # Mark the step as completed
         entity.complete_step(workflow_step)
 
-        # Update parameters if result is provided
+        # Update context if result is provided
         if result and isinstance(result, dict):
-            entity.update_parameters(result)
-
-        # Update status if next_status is specified in the step
-        if "next_status" in step_config and step_config["next_status"]:
-            entity.parameters["status"] = step_config["next_status"]
-            entity.add_log(f"Status updated to '{step_config['next_status']}'")
+            entity.update_context(result)
 
         # Find the next pending step
         pending_steps = entity.get_steps_by_status(StepStatus.PENDING)
@@ -303,21 +324,17 @@ class DatabaseManager:
 
     # Workflow Config Operations
 
-    def create_workflow_config(self, name, description=None, parameters=None, steps=None):
+    def create_workflow_config(self, name, description=None, context=None, steps=None):
         """Create a new workflow configuration."""
         config = WorkflowConfig(
             db=self.db,
             name=name,
             description=description,
-            parameters=parameters or {},
+            context=context or {},
             steps=steps or []
         )
         config.save()
         return config
-
-    def get_workflow_config(self, name):
-        """Get a workflow configuration by name."""
-        return WorkflowConfig.get_by_name(self.db, name)
 
     def list_workflow_configs(self):
         """List all workflow configurations."""
@@ -332,7 +349,7 @@ class DatabaseManager:
             db=self.db,
             name=config_dict["name"],
             description=config_dict.get("description"),
-            parameters=config_dict.get("parameters", {}),
+            context=config_dict.get("context", {}),
             steps=config_dict.get("steps", [])
         )
         config.save()
@@ -340,14 +357,14 @@ class DatabaseManager:
 
     # Helper methods
 
-    def _check_step_conditions(self, step, parameters):
+    def _check_step_conditions(self, step, context):
         """Check if a step's conditions are met."""
         if "conditions" not in step or not step["conditions"]:
             return True  # No conditions means always true
 
         for param_name, expected_value in step["conditions"].items():
-            if param_name not in parameters:
+            if param_name not in context:
                 return False
-            if parameters[param_name] != expected_value:
+            if context[param_name] != expected_value:
                 return False
         return True

@@ -26,3 +26,4 @@ def format_alert(feature: dict) -> str:
         Description: {props.get('description', 'No description available')}
         Instructions: {props.get('instruction', 'No specific instructions provided')}
         """
+

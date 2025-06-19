@@ -64,7 +64,7 @@ python test_gpmgmt_tools.py
 - `get_details_for_workflow(name)`: Get details for a specific workflow configuration
 - `create_workflow(name, description, config_name)`: Create a new workflow instance
 - `list_workflows()`: List all active workflow instances
-- `launch_workflow(name, parameters)`: Launch a workflow with the given name and parameters
+- `launch_workflow(name, context)`: Launch a workflow with the given name and context
 
 ## Workflow Configuration
 
@@ -72,7 +72,7 @@ Workflows are defined in JSON configuration files located in the `workflows` dir
 
 - **name**: The name of the workflow
 - **description**: A description of the workflow
-- **parameters**: The parameters required for the workflow
+- **context**: The context required for the workflow
 - **steps**: The steps in the workflow
 
 ### Example Workflow Configuration
@@ -81,7 +81,7 @@ Workflows are defined in JSON configuration files located in the `workflows` dir
 {
   "name": "assets-deployment",
   "description": "Assets deployment workflow",
-  "parameters": {
+  "context": {
     "ticket_number": { "type": "string", "required": true },
     "ext-app-id": { "type": "string", "required": true },
     "assets-location": { "type": "string", "required": false },
@@ -121,7 +121,7 @@ Workflows are defined in JSON configuration files located in the `workflows` dir
 
 ### Step Conditions
 
-Steps can have conditions that determine when they should be executed. Conditions are based on workflow parameters and can include:
+Steps can have conditions that determine when they should be executed. Conditions are based on workflow context and can include:
 
 - Parameter existence checks
 - Parameter value checks

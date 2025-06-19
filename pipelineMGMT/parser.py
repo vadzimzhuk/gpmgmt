@@ -43,14 +43,14 @@ class WorkflowParser:
         if "name" not in config:
             raise ValueError("Workflow configuration must have a name")
 
-        if "parameters" not in config or not isinstance(config["parameters"], dict):
-            raise ValueError("Workflow configuration must have parameters as a dictionary")
+        if "context" not in config or not isinstance(config["context"], dict):
+            raise ValueError("Workflow configuration must have context as a dictionary")
 
         if "steps" not in config or not isinstance(config["steps"], list):
             raise ValueError("Workflow configuration must have steps as a list")
 
-        # Validate parameters
-        for param_name, param_config in config["parameters"].items():
+        # Validate context
+        for param_name, param_config in config["context"].items():
             if not isinstance(param_config, dict):
                 raise ValueError(f"Parameter '{param_name}' configuration must be a dictionary")
 

@@ -5,6 +5,8 @@ import os
 from db.manager import DatabaseManager
 from pipelineMGMT.parser import WorkflowParser
 from pipelineMGMT.executor import WorkflowExecutor
+from pipelineMGMT.configManager import ConfigManager
+from db.models import StepStatus
 
 class WorkflowManager:
     """Manager for workflow operations."""
@@ -29,27 +31,23 @@ class WorkflowManager:
 
     def load_workflow_configs(self):
         """Load all workflow configurations from the workflows directory."""
-        configs = WorkflowParser.load_all_workflow_configs(self.workflows_dir)
-        
-        # Save the configs to the database
-        # for config in configs:
-        #     self.db_manager.save_workflow_config_from_dict(config)
+        configs = ConfigManager().load_workflow_configs()
             
         return configs
 
     # Workflow Entity Operations
 
-    def create_workflow(self, workflow_config_name, custom_name=None, parameters=None):
-        """Create and launch a new pipeline (workflow entity) based on workflow config(template), custom pipeline name and optional parameters."""
+    def create_workflow(self, workflow_config_name, custom_name=None, context=None):
+        """Create and launch a new pipeline (workflow entity) based on workflow config(template), custom pipeline name and optional context."""
         try:
             config = next((config for config in self.load_workflow_configs() if config.get("name") == workflow_config_name), None)
             # print(f"Config found: {config}")
 
             entity = self.db_manager.create_workflow_entity(
-                config, name=custom_name, parameters=parameters
+                config, name=custom_name
             )
 
-            print(f"Created workflow entity: {entity}")
+            # print(f"Created workflow entity: {entity}")
             
             # Generate a description if not provided
             if not entity.description:
@@ -57,11 +55,11 @@ class WorkflowManager:
                 # config = self.load_workflow_configs().get(workflow_config_name)
 
                 if config and config.description:
-                    # Create a description based on the workflow config and parameters
+                    # Create a description based on the workflow config and context
                     desc_parts = [config.description]
                     
-                    # Add key parameters to the description
-                    for param_name, param_value in entity.parameters.items():
+                    # Add key context to the description
+                    for param_name, param_value in entity.context.items():
                         if param_name in ["customer_id", "ticket_number", "id", "name"] and param_value:
                             desc_parts.append(f"{param_name.replace('_', ' ').title()}: {param_value}")
                     
@@ -74,7 +72,7 @@ class WorkflowManager:
                 "name": entity.name,
                 "description": entity.description,
                 "config_name": entity.config_name#,
-                # "parameters": entity.parameters,
+                # "context": entity.context,
                 # "steps": entity.to_dict()["steps"]
             }
             
@@ -87,20 +85,20 @@ class WorkflowManager:
             elif current_step is None:
                 response["current_step"] = None
             
-            print(response)
+            # print(response)
                 
             return response
         except ValueError as e:
             return {"error": str(e)}
 
-    def launch_workflow(self, pipeline_id, parameters=None):
-        """Launch a workflow with id and optionally parameters."""
+    def launch_workflow(self, pipeline_id, context=None):
+        """Launch a workflow with id and optionally context."""
         try:
             entity = self.db_manager.launch_workflow_entity(
-                pipeline_id, parameters=parameters
+                pipeline_id, context=context
             )
 
-            print(f"Launched workflow entity: {entity}")
+            # print(f"Launched workflow entity: {entity}")
             
             # Prepare response with proper handling of WorkflowStep objects
             response = {
@@ -108,18 +106,20 @@ class WorkflowManager:
                 "name": entity.name,
                 "description": entity.description,
                 "config_name": entity.config_name,
-                "parameters": entity.parameters,
+                "context": entity.context,
                 "steps": entity.to_dict()["steps"]
             }
             
             # Handle current_step if it's a WorkflowStep object
             current_step = entity.get_first_step()
+            print("Current step: " + str(current_step.name))
+
             if current_step:
                 response["current_step"] = current_step.name
             else:
                 response["current_step"] = None
 
-            step_execution = self.executor.execute_step(entity.id, current_step.id if current_step else None)
+            step_execution = self.executor.execute_step(entity.id, current_step.name if current_step else None)
 
             response["step_execution"] = step_execution
                 
@@ -127,14 +127,13 @@ class WorkflowManager:
         except ValueError as e:
             return {"error": str(e)}
 
-    def get_workflow(self, identifier):
+    def get_workflow(self, identifier): #todo: rename to get_workflow_entity
         """Get a pipeline (workflow entity) by ID, name, or description."""
         try:
             entity = self.db_manager.get_workflow_entity(identifier)
             if not entity:
                 return {"error": f"Workflow '{identifier}' not found"}
             
-            # Convert entity to dict
             entity_dict = entity.to_dict()
             
             # Ensure current_step is a string for API compatibility
@@ -148,20 +147,20 @@ class WorkflowManager:
         except Exception as e:
             return {"error": str(e)}
 
-    def update_workflow(self, identifier, parameters):
-        """Update a workflow entity's parameters."""
+    def update_workflow(self, identifier, context):
+        """Update a workflow entity's context."""
         try:
-            entity = self.db_manager.update_workflow_entity(identifier, parameters)
+            entity = self.db_manager.update_workflow_entity(identifier, context)
             
             # Prepare response with proper handling of WorkflowStep objects
             response = {
                 "id": entity.id,
                 "name": entity.name,
-                "parameters": entity.parameters,
+                "context": entity.context,
                 "steps": entity.to_dict()["steps"]
             }
             
-            # Handle current_step if it's a WorkflowStep object
+
             current_step = entity.get_current_step()
             if current_step:
                 response["current_step"] = current_step.name
@@ -172,9 +171,12 @@ class WorkflowManager:
         except ValueError as e:
             return {"error": str(e)}
 
-    def execute_workflow_step(self, identifier, step_id=None):
+    def execute_workflow_step(self, pipelineId, step_id=None):
         """Execute a workflow step."""
-        return self.executor.execute_step(identifier, step_id)
+        # pipeline = self.db_manager.set_step_status(pipelineId, step_id, StepStatus.RUNNING)
+        instructions = self.executor.execute_step(pipelineId, step_id)
+        #handle errors
+        return instructions
 
     def complete_workflow_step(self, identifier, step_id, result=None):
         """Complete a workflow step."""
@@ -224,7 +226,7 @@ class WorkflowManager:
     def get_workflow_config(self, name):
         """Get a workflow configuration by name."""
         try:
-            config = self.db_manager.get_workflow_config(name)
+            config = ConfigManager().get_workflow_config(name)
             if not config:
                 return {"error": f"Workflow configuration '{name}' not found"}
             return config.to_dict()

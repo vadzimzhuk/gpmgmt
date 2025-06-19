@@ -1,7 +1,7 @@
 {
   "name": "crisis-communication-workflow",
   "description": "The way we behave in a crisis communication situation.",
-  "parameters": {
+  "context": {
     "ticket_number": { "type": "string", "required": true },
     "ext-app-id": { "type": "string", "required": true },
     "assets-location": { "type": "string", "required": true },
