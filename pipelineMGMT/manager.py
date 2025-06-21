@@ -5,7 +5,8 @@ Manager for workflow operations.
 from db.manager import DatabaseManager
 from pipelineMGMT.executor import WorkflowExecutor
 from pipelineMGMT.configManager import ConfigManager
-from db.models import StepStatus, WorkflowStep
+from db.models import WorkflowStatus, StepStatus
+from db.workflowStep import WorkflowStep
 
 class WorkflowManager:
     """Manager for workflow operations."""
@@ -195,17 +196,71 @@ class WorkflowManager:
 
         entity.save()
         return entity
+    
+    def complete_workflow(self, pipelineId):
+        """Complete a workflow."""
+        entity = self.db_manager.get_workflow_entity(pipelineId)
+        if not entity:
+            raise ValueError(f"Workflow entity '{pipelineId}' not found")
 
-    # def execute_workflow_step(self, pipelineId, step_id=None):
-    #     """Execute a workflow step."""
-    #     # pipeline = self.db_manager.set_step_status(pipelineId, step_id, StepStatus.RUNNING)
-    #     instructions = self.executor.execute_step(pipelineId, step_id)
-    #     #handle errors
-    #     return instructions
+        if entity.status == WorkflowStatus.CANCELLED or entity.status == WorkflowStatus.COMPLETED:
+            raise ValueError(f"Cannot complete cancelled or completed workflow '{pipelineId}'")
 
-    # def complete_workflow_step(self, identifier, step_id, result=None):
-    #     """Complete a workflow step."""
-    #     return self.executor.complete_manual_step(identifier, step_id, result)
+        # Mark the workflow as completed
+        entity.complete()
+        # entity.save()
+
+        return {
+            "id": entity.id,
+            "name": entity.name,
+            "is_completed": True,
+            "completed_at": entity.updated_at
+        }
+
+    def execute_workflow_step(self, pipelineId, step_id=None):
+        """Execute a workflow step."""
+        instructions = self.executor.execute_step(pipelineId, step_id)
+        # todo: handle errors
+        return instructions
+    
+    def complete_workflow_current_step(self, pipelineId):
+        """Complete the current step in the workflow."""
+        entity = self.db_manager.get_workflow_entity(pipelineId)
+        if not entity:
+            raise ValueError(f"Workflow entity '{pipelineId}' not found")
+
+        current_step = entity.get_current_step()
+        if not current_step:
+            raise ValueError("No current step set for the workflow")
+
+        return self.complete_workflow_step(pipelineId, current_step.name)
+
+    def complete_workflow_step(self, pipelineId, stepName, result=None):
+        """Complete a workflow step."""
+        step_completion_result = self.executor.complete_manual_step(pipelineId, stepName, result)
+
+        next_step = None
+        remaining_running_steps = self.get_workflow_steps_with_status(pipelineId, StepStatus.RUNNING)
+        
+        if remaining_running_steps:
+            next_step = remaining_running_steps[0] if remaining_running_steps else None
+        else:
+            remaining_pending_steps = self.get_workflow_steps_with_status(pipelineId, StepStatus.PENDING)
+            next_step = remaining_pending_steps[0] if remaining_pending_steps else None
+        
+        if not next_step:
+            self.complete_workflow(pipelineId)
+            return {
+                "message": "Workflow completed successfully."
+                # "completed_at": step_completion_result.completed_at,
+                # "result": step_completion_result.result
+            }
+        all_pipeline_steps = self.get_workflow_steps(pipelineId)
+        steps_strings = [f"{step.name}: {step.status}" for step in all_pipeline_steps]
+
+        result = f"Current step has been successfully completed! \n Current pipeline execution state: \n {steps_strings} \n The next step to proceed with is: {next_step.name}. \n Please follow the instruction: {next_step.instructions}"
+
+        return result
 
     def cancel_workflow(self, identifier, reason=None):
         """Cancel a workflow."""
@@ -256,4 +311,25 @@ class WorkflowManager:
             return [config.to_dict() for config in configs]
         except Exception as e:
             return {"error": str(e)}
+    
+    def get_workflow_steps(self, pipelineId):
+        """Get all workflow steps."""
+        try:
+            steps = self.db_manager.get_workflow_entity(pipelineId).steps
+            return steps
+        except Exception as e:
+            return {"error": str(e)}
         
+    def get_workflow_steps_with_status(self, identifier, status):
+        """Get workflow steps with a specific status."""
+        try:
+            entity = self.db_manager.get_workflow_entity(identifier)
+            if not entity:
+                raise ValueError(f"Workflow entity '{identifier}' not found")
+
+            steps = entity.get_steps_by_status(status)
+            return steps
+        except ValueError as e:
+            return {"error": str(e)}
+        except Exception as e:
+            return {"error": str(e)}

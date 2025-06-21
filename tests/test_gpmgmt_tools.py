@@ -6,7 +6,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 import asyncio
 from pipelineMGMT.manager import WorkflowManager
-from gpmgmt import get_available_workflows, get_details_for_workflow, launch_workflow, create_workflow
+from gpmgmt import get_available_workflows, get_details_for_workflow, launch_workflow, create_workflow, execute_pipeline_step, complete_pipeline_current_step
 
 
 async def main():
@@ -62,6 +62,18 @@ async def main():
     print("Current steps execution status:")
     for step in launch_result["steps"]:
         print(f"• {step['name']}: ({step['status']})")
+
+    print("\n---\n")
+    # Complete the workflow step
+    
+    complete_result = await complete_pipeline_current_step(str(creation_result))
+    print("Pipeline step completed: " + complete_result)
+
+    intermediate_step_completion = await complete_pipeline_current_step(str(creation_result))
+    print("Intermediate step completion result: " + str(intermediate_step_completion))
+
+    final_step_completion = await complete_pipeline_current_step(str(creation_result))
+    print("Final step completion result: " + str(final_step_completion))
 
 if __name__ == "__main__":
     asyncio.run(main())

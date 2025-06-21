@@ -42,7 +42,7 @@ class WorkflowExecutor:
             entity.save()
             return {"error": error}
         
-    def execute_workflow_step(self, identifier, step_id=None): #remove
+    def execute_workflow_step(self, identifier, stepName=None): #remove
         """Execute a workflow step."""
         entity = self.db_manager.get_workflow_entity(identifier)
         if not entity:
@@ -51,17 +51,17 @@ class WorkflowExecutor:
         if entity.is_cancelled:
             raise ValueError(f"Cannot execute step for cancelled workflow '{identifier}'")
 
-        # If no step_id is provided, use the current step
-        if not step_id:
+        # If no stepName is provided, use the current step
+        if not stepName:
             current_step = entity.get_current_step()
             if not current_step:
                 current_step = entity.get_first_step()
                 if not current_step:
                     raise ValueError("No step specified and no current step set")
-            step_id = current_step.name
+            stepName = current_step.name
 
         # Find the step in the entity's steps
-        workflow_step = self.set_step_status(identifier, step_id, StepStatus.RUNNING)
+        workflow_step = self.set_step_status(identifier, stepName, StepStatus.RUNNING)
 
         return {
             "entity": entity,
@@ -85,7 +85,7 @@ class WorkflowExecutor:
         entity.save()
         return step
     
-    def complete_workflow_step(self, identifier, step_id=None, result=None):
+    def complete_workflow_step(self, identifier, stepName=None, result=None):
         """Complete a workflow step."""
         entity = self.db_manager.get_workflow_entity(identifier)
         if not entity:
@@ -94,19 +94,19 @@ class WorkflowExecutor:
         if entity.is_cancelled:
             raise ValueError(f"Cannot complete step for cancelled workflow '{identifier}'")
 
-        # If no step_id is provided, use the current step
-        if not step_id:
+        # If no stepName is provided, use the current step
+        if not stepName:
             current_step = entity.get_current_step()
             if not current_step:
                 raise ValueError("No step specified and no current step set")
-            step_id = current_step.name
+            stepName = current_step.name
 
         # Find the step in the entity's steps
-        workflow_step = entity.get_step(step_id)
+        workflow_step = entity.get_step(stepName)
         
         # If the step doesn't exist in the entity's steps, create it
         if not workflow_step:
-            raise ValueError(f"Step '{step_id}' not found in workflow entity '{identifier}'")
+            raise ValueError(f"Step '{stepName}' not found in workflow entity '{identifier}'")
         
         # Store the result in the step
         if result:
@@ -126,17 +126,20 @@ class WorkflowExecutor:
         else:
             entity.add_log("All steps completed", "INFO")
 
+        for step in entity.steps:
+            print(f"• {step.name}: ({step.status})")
+
         entity.save()
         return entity
 
-    def complete_manual_step(self, workflow_id, step_id, result=None):
+    def complete_manual_step(self, workflow_id, stepName, result=None):
         """Complete a manual workflow step."""
         try:
-            entity = self.complete_workflow_step(workflow_id, step_id, result)
+            entity = self.complete_workflow_step(workflow_id, stepName, result)
             current_step = entity.get_current_step()
             return {
                 "workflow_id": entity.id,
-                "step_id": step_id,
+                "stepName": stepName,
                 "status": "completed",
                 "next_step": current_step.name if current_step else None
             }

@@ -7,6 +7,7 @@ mcp = FastMCP("gpmgmt")
 workflowManager = WorkflowManager()
 configManager = ConfigManager()
 
+# PIPELINE MGMT TOOLS
 #@mcp.resource("resource://available-workflows")
 @mcp.tool()
 async def get_available_workflows() -> str:
@@ -66,11 +67,11 @@ async def list_workflows() -> str:
     return "\n".join(result)
 
 @mcp.tool()
-async def launch_workflow(name: str) -> str:
+async def launch_workflow(pipepline_id: str) -> str:
     """Launch a workflow with the given name and context."""
 
     try:
-        workflow = workflowManager.launch_workflow(name)
+        workflow = workflowManager.launch_workflow(pipepline_id)
         # return f"""Workflow '{workflow["name"]}' launched successfully. Current step is: {workflow["current_step"]}."""
         return {
             "id": workflow["id"],
@@ -88,13 +89,13 @@ async def launch_workflow(name: str) -> str:
         return f"Unexpected error: {str(e)}"
     
 @mcp.tool()
-async def update_workflow(name: str, context: dict = None) -> str:
+async def update_workflow(pipepline_id: str, context: dict = None) -> str:
     """Update an existing workflow with the given name and context."""
     if context is None:
         context = {}
 
     try:
-        workflow = workflowManager.update_workflow(name, context)
+        workflow = workflowManager.update_workflow(pipepline_id, context)
         return f"""Workflow '{workflow["name"]}' updated successfully."""
     except ValueError as e:
         return f"Error updating workflow: {str(e)}"
@@ -102,21 +103,22 @@ async def update_workflow(name: str, context: dict = None) -> str:
         return f"Unexpected error: {str(e)}"
     
 @mcp.tool()
-async def cancel_workflow(name: str, reason: str = None) -> str:
+async def cancel_workflow(pipepline_id: str, reason: str = None) -> str:
     """Cancel a workflow with the given name."""
     try:
-        workflow = workflowManager.cancel_workflow(name, reason)
+        workflow = workflowManager.cancel_workflow(pipepline_id, reason)
         return f"""Workflow '{workflow["name"]}' has been cancelled successfully."""
     except ValueError as e:
         return f"Error cancelling workflow: {str(e)}"
     except Exception as e:
         return f"Unexpected error: {str(e)}"
     
+# PIPELINE MGMT TOOLS
 @mcp.tool()
-async def execute_pipeline_step(name: str, step_id: str = None) -> str:
+async def execute_pipeline_step(pipepline_id: str, step_id: str = None) -> str:
     """Execute step in the pipeline. Current step will be executed if step_id is not provided."""
     try:
-        execution = workflowManager.execute_workflow_step(name, step_id)
+        execution = workflowManager.execute_workflow_step(pipepline_id, step_id)
         if "error" in execution:
             return f"Error executing step: {execution['error']}"
         
@@ -128,6 +130,32 @@ async def execute_pipeline_step(name: str, step_id: str = None) -> str:
             return "Unknown step type."
     except ValueError as e:
         return f"Error executing workflow step: {str(e)}"
+    except Exception as e:
+        return f"Unexpected error: {str(e)}"
+    
+@mcp.tool()
+async def complete_pipeline_step(pipepline_id, step_name: str) -> str:
+    """Complete the current step in the pipeline."""
+    try:
+        step_completion_result = workflowManager.complete_workflow_step(pipepline_id, step_name)
+        # return information about the completed step and further instructions if any. If the pipeline is finished, return a message indicating completion.
+        return step_completion_result
+        # return f"Step '{step_id}' in workflow '{name}' has been marked as completed."
+    except ValueError as e:
+        return f"Error completing step: {str(e)}"
+    except Exception as e:
+        return f"Unexpected error: {str(e)}"
+    
+@mcp.tool()
+async def complete_pipeline_current_step(pipepline_id) -> str:
+    """Complete the current step in the pipeline."""
+    try:
+        step_completion_result = workflowManager.complete_workflow_current_step(pipepline_id)
+        # return information about the completed step and further instructions if any. If the pipeline is finished, return a message indicating completion.
+        return step_completion_result
+        # return f"Step '{step_id}' in workflow '{name}' has been marked as completed."
+    except ValueError as e:
+        return f"Error completing step: {str(e)}"
     except Exception as e:
         return f"Unexpected error: {str(e)}"
 

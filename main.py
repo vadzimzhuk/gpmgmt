@@ -6,7 +6,6 @@ from pipelineMGMT import WorkflowManager
 mcp = FastMCP("gpmgmt")
 
 # def main():
-#     print("Hello from gpmgmt!")
 
 # @mcp.tool()
 # async def get_available_workflows() -> str:

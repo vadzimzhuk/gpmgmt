@@ -1,137 +1,23 @@
 """
 Database models for the workflow management system.
 """
-import sqlite3
+# import sqlite3
 import json
 import uuid
 from datetime import datetime
-import os
-import threading
+# import os
+# import threading
 from enum import Enum
 from dataclasses import dataclass
-from typing import Dict, Any, Optional, List
-
-
-class StepType(Enum):
-    AUTOMATED = "automated"
-    MANUAL = "manual"
-
-
-class StepStatus(Enum):
-    PENDING = "pending"
-    RUNNING = "running"
-    WAITING_INPUT = "waiting_input"
-    COMPLETED = "completed"
-    FAILED = "failed"
-    SKIPPED = "skipped"
-
+# from typing import Dict, Any, Optional, List
+from db.workflowStep import WorkflowStep, StepType, StepStatus
+# from db.database import Database
 
 class WorkflowStatus(Enum):
     CREATED = "created"
     RUNNING = "running"
     COMPLETED = "completed"
     CANCELLED = "cancelled"
-
-
-@dataclass
-class WorkflowStep:
-    """Individual workflow step configuration and state"""
-    name: str
-    step_type: StepType
-    conditions: Dict[str, Any]  # Parameter conditions to trigger this step
-    instructions: str
-    mcp_server_config: Optional[Dict[str, Any]] = None  # For automated steps
-    status: StepStatus = StepStatus.PENDING
-    result: Optional[str] = None
-    error: Optional[str] = None
-    started_at: Optional[str] = None
-    completed_at: Optional[str] = None
-
-    
-    @classmethod
-    def from_config(cls, config):
-        step_type = StepType.MANUAL if config["type"] == "manual" else StepType.AUTOMATED
-        
-        return WorkflowStep(
-            name=config["id"],
-            step_type=step_type,
-            conditions=config.get("conditions", {}),
-            instructions=config.get("instructions", ""),
-            mcp_server_config=config.get("action")
-        )
-
-
-class Database:
-    """SQLite database manager for workflow entities."""
-
-    def __init__(self, db_path="workflows.db"):
-        """Initialize the database connection."""
-        self.db_path = db_path
-        self.conn = None
-        self.cursor = None
-        self.initialize()
-
-    def initialize(self):
-        """Initialize the database and create tables if they don't exist."""
-        # Create the database directory if it doesn't exist
-        db_dir = os.path.dirname(self.db_path)
-        if db_dir and not os.path.exists(db_dir):
-            os.makedirs(db_dir)
-
-        # Connect to the database with check_same_thread=False to allow usage across threads
-        self.conn = sqlite3.connect(self.db_path, check_same_thread=False)
-        # Enable foreign keys
-        self.conn.execute("PRAGMA foreign_keys = ON")
-        # Use Row as row factory to get dict-like rows
-        self.conn.row_factory = sqlite3.Row
-        self.cursor = self.conn.cursor()
-        # Add a lock for thread safety
-        self.lock = threading.RLock()
-
-        # Create workflow_entities table
-        self.cursor.execute('''
-        CREATE TABLE IF NOT EXISTS workflow_entities (
-            id TEXT PRIMARY KEY,
-            name TEXT UNIQUE,
-            config_name TEXT NOT NULL,
-            description TEXT,
-            created_at TEXT NOT NULL,
-            updated_at TEXT NOT NULL,
-            context TEXT NOT NULL,
-            steps TEXT NOT NULL,
-            is_cancelled INTEGER NOT NULL DEFAULT 0,
-            cancelled_at TEXT,
-            logs TEXT NOT NULL
-        )
-        ''')
-
-        # Create workflow_configs table
-        self.cursor.execute('''
-        CREATE TABLE IF NOT EXISTS workflow_configs (
-            name TEXT PRIMARY KEY,
-            description TEXT,
-            context TEXT NOT NULL,
-            steps TEXT NOT NULL,
-            created_at TEXT NOT NULL,
-            updated_at TEXT NOT NULL
-        )
-        ''')
-
-        self.conn.commit()
-
-    def close(self):
-        """Close the database connection."""
-        if self.conn:
-            self.conn.close()
-
-    def __enter__(self):
-        """Context manager enter method."""
-        return self
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        """Context manager exit method."""
-        self.close()
-
 
 class WorkflowEntity:
     """Model for workflow entity."""
@@ -147,7 +33,7 @@ class WorkflowEntity:
         self.description = description
         self.status = WorkflowStatus.CREATED
         self.context = context or {}
-        self.steps = steps or []  # List of WorkflowStep objects
+        self.steps = steps or []
         self.is_cancelled = is_cancelled
         self.cancelled_at = cancelled_at
         self.logs = logs or []
@@ -157,10 +43,7 @@ class WorkflowEntity:
     def save(self):
         """Save the workflow entity to the database."""
         self.updated_at = datetime.utcnow().isoformat()
-
-        # print(f"Saving workflow entity: {str(self)}")
         
-        # Convert steps to a serializable format
         serialized_steps = []
         for step in self.steps:
             step_dict = {
@@ -177,8 +60,6 @@ class WorkflowEntity:
             }
             serialized_steps.append(step_dict)
         
-        # print(f"Serialized steps: {json.dumps(serialized_steps, indent=2)}")
-        # Use the lock to ensure thread safety
         with self.db.lock:
             self.db.cursor.execute('''
             INSERT OR REPLACE INTO workflow_entities (
@@ -211,6 +92,46 @@ class WorkflowEntity:
         }
         self.logs.append(log_entry)
         return self
+    
+    def to_dict(self):
+        """Convert the workflow entity to a dictionary."""
+        # Convert steps to a serializable format
+        serialized_steps = []
+        for step in self.steps:
+            step_dict = {
+                "name": step.name,
+                "type": step.step_type.value,
+                "status": step.status.value,
+                "instructions": step.instructions,
+                "result": step.result,
+                "error": step.error,
+                "started_at": step.started_at,
+                "completed_at": step.completed_at
+            }
+            serialized_steps.append(step_dict)
+        
+        return {
+            "id": self.id,
+            "name": self.name,
+            "config_name": self.config_name,
+            "description": self.description,
+            "created_at": self.created_at,
+            "updated_at": self.updated_at,
+            "context": self.context,
+            "steps": serialized_steps,
+            "is_cancelled": self.is_cancelled,
+            "cancelled_at": self.cancelled_at,
+            "logs": self.logs
+        }
+    
+    # ============== Business logic methods ================
+    def complete(self):
+        """Mark the workflow as completed."""
+        self.status = WorkflowStatus.COMPLETED
+        self.updated_at = datetime.utcnow().isoformat()
+        self.add_log("Workflow completed successfully.", "INFO")
+        self.save()
+        return self
 
     def cancel(self, reason=None):
         """Cancel the workflow."""
@@ -227,6 +148,7 @@ class WorkflowEntity:
         self.add_log(f"context updated: {context}", "INFO")
         return self
 
+    # ============== Step management methods ================
     def complete_step(self, step_or_step_id):
         """Mark a step as completed."""
         if isinstance(step_or_step_id, str):
@@ -272,12 +194,7 @@ class WorkflowEntity:
             self.add_log(f"Step started: {step.name}", "INFO")
         return self
 
-    def add_step(self, step):
-        """Add a new step to the workflow."""
-        self.steps.append(step)
-        self.add_log(f"Step added: {step.name}", "INFO")
-        return self
-
+    # ============= Step retrieval methods ================
     def get_step(self, step_id):
         """Get a step by ID."""
         return next((s for s in self.steps if s.name == step_id), None)
@@ -293,8 +210,6 @@ class WorkflowEntity:
     
     def get_first_step(self):
         """Get the first step in the workflow."""
-        if not self.steps:
-            print("No steps in the workflow.")
         return self.steps[0] if self.steps else None
 
     def get_next_pending_step(self):
@@ -302,54 +217,18 @@ class WorkflowEntity:
         pending_steps = [step for step in self.steps if step.status == StepStatus.PENDING]
         return pending_steps[0] if pending_steps else None
 
-    def to_dict(self):
-        """Convert the workflow entity to a dictionary."""
-        # Convert steps to a serializable format
-        serialized_steps = []
-        for step in self.steps:
-            step_dict = {
-                "name": step.name,
-                "type": step.step_type.value,
-                "status": step.status.value,
-                "instructions": step.instructions,
-                "result": step.result,
-                "error": step.error,
-                "started_at": step.started_at,
-                "completed_at": step.completed_at
-            }
-            serialized_steps.append(step_dict)
-        
-        return {
-            "id": self.id,
-            "name": self.name,
-            "config_name": self.config_name,
-            "description": self.description,
-            "created_at": self.created_at,
-            "updated_at": self.updated_at,
-            "context": self.context,
-            "steps": serialized_steps,
-            "is_cancelled": self.is_cancelled,
-            "cancelled_at": self.cancelled_at,
-            "logs": self.logs
-        }
-
+    # ================== Class methods for database operations ==================
     @classmethod
     def from_row(cls, db, row):
         """Create a workflow entity from a database row."""
         if not row:
             return None
         
-        # Deserialize steps
         steps = []
 
-        # steps_data = row["steps"]
-        # print("Steps data: " + steps_data)
-        # print("Steps in the row: " + row["steps"])
-        # print("steps" in row)
         if "steps" in row.keys() and row["steps"]:
             steps_data = json.loads(row["steps"])
             for step_data in steps_data:
-                # print(f"Deserializing step data: {str(step_data)}")
                 step = WorkflowStep(
                     name=step_data["name"],
                     step_type=StepType(step_data["step_type"]),
@@ -363,11 +242,7 @@ class WorkflowEntity:
                     completed_at=step_data.get("completed_at")
                 )
 
-                # print(f"Deserialized step: {step.name}")
                 steps.append(step)
-        # print("row:" + str(row))
-        # print("steps in the row:" + row["steps"])
-        # print(f"Deserialized steps: {steps}")
         
         return cls(
             db=db,
@@ -392,7 +267,7 @@ class WorkflowEntity:
                 "SELECT * FROM workflow_entities WHERE id = ?", (workflow_id,)
             )
             row = db.cursor.fetchone()
-            # print(f"Retrieved row: {dict(row)}")
+
         return cls.from_row(db, row)
 
     @classmethod

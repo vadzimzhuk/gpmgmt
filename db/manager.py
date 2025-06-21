@@ -1,7 +1,9 @@
 """
 Database manager for the workflow management system.
 """
-from db.models import Database, WorkflowEntity, WorkflowStep
+from db.models import WorkflowEntity 
+from db.database import Database
+from db.workflowStep import WorkflowStep
 
 class DatabaseManager:
     """Manager for database operations."""
@@ -33,8 +35,6 @@ class DatabaseManager:
         
         context = config.get("context", {})
         steps = []
-
-        print(f"Steps initialized:")
         
         # Initialize steps from config
         for step_config in config["steps"]:
@@ -51,10 +51,6 @@ class DatabaseManager:
             # context=config["context"],
             steps=steps
         )
-
-        print(f"{entity.id}: Steps initialized: {len(entity.steps)} steps found")
-
-        # print("Workflow entity created: " + str(entity.to_dict()))
         
         entity.add_log(f"Workflow '{name}' based on '{config["name"]}' created")
         entity.save()
