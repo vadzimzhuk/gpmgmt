@@ -6,7 +6,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 import asyncio
 from pipelineMGMT.manager import WorkflowManager
-from gpmgmt import get_available_workflows, get_details_for_workflow, launch_workflow, create_workflow, execute_pipeline_step, complete_pipeline_current_step
+from gpmgmt import get_available_workflows, get_details_for_workflow, launch_workflow, create_workflow, execute_pipeline_step, complete_pipeline_current_step, update_workflow
 
 
 async def main():
@@ -57,14 +57,22 @@ async def main():
     print(f"Testing launch_workflow('{str(creation_result)}')...")
     launch_result = await launch_workflow(str(creation_result))
 
-    print("Pipeline has been launched: " + launch_result["name"])
-    print("Current step inctructions: " + str(launch_result["step_execution"]))
-    print("Current steps execution status:")
-    for step in launch_result["steps"]:
-        print(f"• {step['name']}: ({step['status']})")
+    print("Pipeline has been launched")
+    # print("Pipeline has been launched: " + launch_result["name"])
+    print("Current step inctructions: " + str(launch_result))
+    # print("Current steps execution status:")
+    # for step in launch_result["steps"]:
+    #     print(f"• {step['name']}: ({step['status']})")
 
     print("\n---\n")
-    # Complete the workflow step
+
+    context = {
+        "file_location": "/Users/vzhuk/Desktop",
+        "file_name": "test_file.txt"
+    }
+
+    update_workflow_result = await update_workflow(str(creation_result), context)
+    print("Workflow updated with context: " + str(update_workflow_result))
     
     complete_result = await complete_pipeline_current_step(str(creation_result))
     print("Pipeline step completed: " + complete_result)

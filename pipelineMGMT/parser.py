@@ -76,21 +76,21 @@ class WorkflowParser:
             if step["type"] not in ["manual", "automated"]:
                 raise ValueError(f"Step '{step['id']}' type must be 'manual' or 'automated'")
 
-            if step["type"] == "manual" and "instructions" not in step:
-                raise ValueError(f"Manual step '{step['id']}' must have instructions")
+            # if step["type"] == "manual" and "instructions" not in step:
+            #     raise ValueError(f"Manual step '{step['id']}' must have instructions")
 
-            if step["type"] == "automated":
-                if "action" not in step:
-                    raise ValueError(f"Automated step '{step['id']}' must have an action")
+            # if step["type"] == "automated":
+            #     if "action" not in step:
+            #         raise ValueError(f"Automated step '{step['id']}' must have an action")
 
-                if not isinstance(step["action"], dict):
-                    raise ValueError(f"Step '{step['id']}' action must be a dictionary")
+            #     if not isinstance(step["action"], dict):
+            #         raise ValueError(f"Step '{step['id']}' action must be a dictionary")
 
-                action = step["action"]
-                if "server" not in action:
-                    raise ValueError(f"Step '{step['id']}' action must have a server")
-                if "tool" not in action:
-                    raise ValueError(f"Step '{step['id']}' action must have a tool")
+            #     action = step["action"]
+            #     if "server" not in action:
+            #         raise ValueError(f"Step '{step['id']}' action must have a server")
+            #     if "tool" not in action:
+            #         raise ValueError(f"Step '{step['id']}' action must have a tool")
 
         return True
 

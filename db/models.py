@@ -22,7 +22,7 @@ class WorkflowStatus(Enum):
 class WorkflowEntity:
     """Model for workflow entity."""
 
-    def __init__(self, db, id=None, name=None, config_name=None, description=None,
+    def __init__(self, db, id=None, name=None, config_name=None, description=None, status=WorkflowStatus.CREATED,
                  context=None, steps=None, is_cancelled=False, cancelled_at=None,
                  logs=None, created_at=None, updated_at=None):
         """Initialize a workflow entity."""
@@ -31,7 +31,7 @@ class WorkflowEntity:
         self.name = name
         self.config_name = config_name
         self.description = description
-        self.status = WorkflowStatus.CREATED
+        self.status = status
         self.context = context or {}
         self.steps = steps or []
         self.is_cancelled = is_cancelled
@@ -63,14 +63,15 @@ class WorkflowEntity:
         with self.db.lock:
             self.db.cursor.execute('''
             INSERT OR REPLACE INTO workflow_entities (
-                id, name, config_name, description, created_at, updated_at,
+                id, name, config_name, description, status, created_at, updated_at,
                 context, steps, is_cancelled, cancelled_at, logs
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ''', (
                 self.id,
                 self.name,
                 self.config_name,
                 self.description,
+                self.status.value,
                 self.created_at,
                 self.updated_at,
                 json.dumps(self.context),
@@ -115,6 +116,7 @@ class WorkflowEntity:
             "name": self.name,
             "config_name": self.config_name,
             "description": self.description,
+            "status": self.status.value,
             "created_at": self.created_at,
             "updated_at": self.updated_at,
             "context": self.context,
@@ -142,13 +144,39 @@ class WorkflowEntity:
         return self
 
     def update_context(self, context):
-        """Update workflow context."""
-        self.context.update(context)
+        """Update workflow context (deep merge)."""
+        self.deep_update_dict(self.context, context)
         self.updated_at = datetime.utcnow().isoformat()
         self.add_log(f"context updated: {context}", "INFO")
         return self
+    
+    def deep_update_dict(self, original, updates):
+        """Deep update a dictionary with another dictionary."""
+        for key, value in updates.items():
+            if isinstance(value, dict) and key in original and isinstance(original[key], dict):
+                self.deep_update_dict(original[key], value)
+            else:
+                original[key] = value
+        return original
 
     # ============== Step management methods ================
+
+    def start_step(self, step_or_step_id):
+        """Start executing a step."""
+        if isinstance(step_or_step_id, str):
+            step = next((s for s in self.steps if s.name == step_or_step_id), None)
+        else:
+            step = step_or_step_id
+            
+        if step:
+            step.status = StepStatus.RUNNING
+            step.started_at = datetime.utcnow().isoformat()
+            self.add_log(f"Step started: {step.name}", "INFO")
+
+            self.status = WorkflowStatus.RUNNING
+            self.save()
+        return self
+    
     def complete_step(self, step_or_step_id):
         """Mark a step as completed."""
         if isinstance(step_or_step_id, str):
@@ -174,24 +202,6 @@ class WorkflowEntity:
             step.status = StepStatus.FAILED
             step.error = error
             self.add_log(f"Step failed: {step.name} - {error}", "ERROR")
-        return self
-
-    def start_step(self, step_or_step_id):
-        """Start executing a step."""
-        if isinstance(step_or_step_id, str):
-            step = next((s for s in self.steps if s.name == step_or_step_id), None)
-        else:
-            step = step_or_step_id
-            
-        if step:
-            # Reset any currently running steps
-            # for s in self.steps:
-            #     if s.status == StepStatus.RUNNING:
-            #         s.status = StepStatus.PENDING
-            
-            step.status = StepStatus.RUNNING
-            step.started_at = datetime.utcnow().isoformat()
-            self.add_log(f"Step started: {step.name}", "INFO")
         return self
 
     # ============= Step retrieval methods ================
@@ -250,6 +260,7 @@ class WorkflowEntity:
             name=row["name"],
             config_name=row["config_name"],
             description=row["description"],
+            status=WorkflowStatus(row["status"]),
             created_at=row["created_at"],
             updated_at=row["updated_at"],
             context=json.loads(row["context"]),

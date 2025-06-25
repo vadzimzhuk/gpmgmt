@@ -11,7 +11,7 @@
     {
       "id": "get-assets",
       "name": "Get Assets for Deployment",
-      "type": "manual",
+      "type": "automatic",
       "conditions": {
         "assets-location": "!null",
         "ext-app-id": "!null"
@@ -22,7 +22,7 @@
     {
       "id": "run-build-job",
       "name": "Assets build job",
-      "type": "manual",
+      "type": "automatic",
       "conditions": {
         "status": "step_1_completed"
       },
@@ -32,7 +32,7 @@
     {
       "id": "ask-now-ticket",
       "name": "Create Ask Now Ticket",
-      "type": "manual",
+      "type": "automatic",
       "conditions": {
         "built-assets-location": "!null"
       },

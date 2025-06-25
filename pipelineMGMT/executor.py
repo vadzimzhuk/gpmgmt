@@ -14,43 +14,52 @@ class WorkflowExecutor:
         # self.mcp_clients = {}  # Map of server name to MCP client
 
     def execute_step(self, workflow_id, stepName=None):
-        """Execute a workflow step."""
+        """Execute a workflow step with optional stepName. If the stepName is not provided, the current step will be executed."""
 
+        print(f"Executing step '{stepName}' for workflow '{workflow_id}'")
         try:
             execution = self.execute_workflow_step(workflow_id, stepName)
+            print("Execution result:", execution)
         except ValueError as e:
             return {"error": str(e)}
 
         entity = execution["entity"]
+        print("execSTATUS:" + str(entity.status))
         step = execution["step"]
         step_type = execution["type"]
 
         # For manual steps, return instructions
-        if step_type == StepType.MANUAL:
-            instructions = self._format_string_with_params(execution["instructions"], entity.context)
+        # if step_type == StepType.MANUAL:
+        instructions = self._format_string_with_params(execution["instructions"], entity.context)
+        execution["instructions"] = instructions
+        entity.save()
 
-            return instructions
+        return execution
 
-        elif step_type == StepType.AUTOMATED:
+        # elif step_type == StepType.AUTOMATED:
         # For automated steps, execute the action
-            error = f"Automated steps are not implemented"
-            entity.add_log(error, "ERROR")
-            return {"error": error}
-        else:
-            error = f"Unknown step type '{step_type}' for step '{step.name}'"
-            entity.add_log(error, "ERROR")
-            entity.save()
-            return {"error": error}
+            # error = f"Automated steps are not implemented"
+            # entity.add_log(error, "ERROR")
+        #     return {"error": error}
+        # else:
+        #     error = f"Unknown step type '{step_type}' for step '{step.name}'"
+        #     entity.add_log(error, "ERROR")
+        #     entity.save()
+        #     return {"error": error}
         
     def execute_workflow_step(self, identifier, stepName=None): #remove
         """Execute a workflow step."""
         entity = self.db_manager.get_workflow_entity(identifier)
+
+        print("Identifier: " + str(identifier))
+
         if not entity:
             raise ValueError(f"Workflow entity '{identifier}' not found")
 
         if entity.is_cancelled:
             raise ValueError(f"Cannot execute step for cancelled workflow '{identifier}'")
 
+        # workflow_step = None
         # If no stepName is provided, use the current step
         if not stepName:
             current_step = entity.get_current_step()
@@ -59,16 +68,23 @@ class WorkflowExecutor:
                 if not current_step:
                     raise ValueError("No step specified and no current step set")
             stepName = current_step.name
+            # workflow_step = current_step
 
+        print(f"Executing step: {stepName}")
         # Find the step in the entity's steps
-        workflow_step = self.set_step_status(identifier, stepName, StepStatus.RUNNING)
+        entity.start_step(stepName)
+        entity.save()
+
+        # print(f"Pipeline status: {entity.status}")
+        # workflow_step = self.set_step_status(identifier, stepName, StepStatus.RUNNING)
+        workflow_step = entity.get_step(stepName)
 
         return {
             "entity": entity,
             "step": workflow_step,
             "type": workflow_step.step_type,
-            "instructions": workflow_step.instructions if workflow_step.step_type == StepType.MANUAL else None,
-            "action": workflow_step.action if workflow_step.step_type == StepType.AUTOMATED else None
+            "instructions": workflow_step.instructions
+            # "action": workflow_step.action if workflow_step.step_type == StepType.AUTOMATED else None
         }
     
     def set_step_status(self, pipeline_id, step_name, status):
@@ -128,6 +144,7 @@ class WorkflowExecutor:
 
         for step in entity.steps:
             print(f"• {step.name}: ({step.status})")
+        # print("Context:" + entity.context)
 
         entity.save()
         return entity

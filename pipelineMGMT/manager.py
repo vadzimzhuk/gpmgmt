@@ -85,7 +85,7 @@ class WorkflowManager:
             return {"error": str(e)}
 
     def launch_workflow(self, pipeline_id):
-        """Launch a workflow with id and optionally context."""
+        """Launch a pipeline(workflow entity) with id."""
         try:
             # Run the first step of the workflow
             step_execution = self.executor.execute_step(pipeline_id)
@@ -93,13 +93,17 @@ class WorkflowManager:
             # Get updated workflow entity
             entity = self.db_manager.get_workflow_entity(pipeline_id)
 
+            print("\nid: " + str(step_execution["entity"].id) + " STATUS: " + str(step_execution["entity"].status))
+            print("id:" + str(entity.id) + " STATUS:" + str(entity.status) + "\n")
+
             response = {
                 "id": entity.id,
                 "name": entity.name,
                 "description": entity.description,
                 "config_name": entity.config_name,
                 "context": entity.context,
-                "steps": entity.to_dict()["steps"]
+                "steps": entity.to_dict()["steps"],
+                "status": str(entity.status)
             }
             
             current_step = entity.get_first_step()
@@ -139,7 +143,7 @@ class WorkflowManager:
         """Update a workflow entity's context."""
         try:
             entity = self.update_workflow_entity(identifier, context)
-            
+
             response = {
                 "id": entity.id,
                 "name": entity.name,
@@ -168,31 +172,31 @@ class WorkflowManager:
         entity.update_context(context)
 
         # Get the workflow configuration
-        config = ConfigManager().get_workflow_config(entity.config_name) #switch from config to entity
-        if not config:
-            raise ValueError(f"Workflow configuration '{entity.config_name}' not found")
+        # config = ConfigManager().get_workflow_config(entity.config_name) #switch from config to entity
+        # if not config:
+        #     raise ValueError(f"Workflow configuration '{entity.config_name}' not found")
 
         # Get existing step names
-        existing_step_names = [step.name for step in entity.steps]
+        # existing_step_names = [step.name for step in entity.steps]
  
         # Check if there are any steps that may assume a status of completed
-        completed_steps = entity.get_steps_by_status(StepStatus.COMPLETED)
+        # completed_steps = entity.get_steps_by_status(StepStatus.COMPLETED)
         # Check for steps that should/can be triggered
-        for step_config in config.steps:
-            step_id = step_config["id"]
-            if (step_id not in [s.name for s in entity.get_steps_by_status(StepStatus.COMPLETED)] and 
-                step_id not in existing_step_names):
-                # self._check_step_conditions(step_config, entity.context)):
-                # Create a new WorkflowStep object
-                step = WorkflowStep.from_config(step_config)
-                entity.steps.append(step)
-                entity.add_log(f"Step '{step_id}' added to steps")
+        # for step_config in config.steps:
+        #     step_id = step_config["id"]
+        #     if (step_id not in [s.name for s in entity.get_steps_by_status(StepStatus.COMPLETED)] and 
+        #         step_id not in existing_step_names):
+        #         # self._check_step_conditions(step_config, entity.context)):
+        #         # Create a new WorkflowStep object
+        #         step = WorkflowStep.from_config(step_config)
+        #         entity.steps.append(step)
+        #         entity.add_log(f"Step '{step_id}' added to steps")
 
         # If no current step is set and there are pending steps, set the first one
-        if not entity.get_current_step() and entity.get_steps_by_status(StepStatus.PENDING):
-            # Find the first pending step
-            first_pending_step = entity.get_steps_by_status(StepStatus.PENDING)[0]
-            entity.start_step(first_pending_step)
+        # if not entity.get_current_step() and entity.get_steps_by_status(StepStatus.PENDING):
+        #     # Find the first pending step
+        #     first_pending_step = entity.get_steps_by_status(StepStatus.PENDING)[0]
+        #     entity.start_step(first_pending_step)
 
         entity.save()
         return entity
@@ -219,9 +223,9 @@ class WorkflowManager:
 
     def execute_workflow_step(self, pipelineId, step_id=None):
         """Execute a workflow step."""
-        instructions = self.executor.execute_step(pipelineId, step_id)
+        execution = self.executor.execute_step(pipelineId, step_id)
         # todo: handle errors
-        return instructions
+        return execution
     
     def complete_workflow_current_step(self, pipelineId):
         """Complete the current step in the workflow."""
@@ -295,7 +299,7 @@ class WorkflowManager:
                     "description": entity.description,
                     "config_name": entity.config_name,
                     "current_step": entity.get_current_step().name if entity.get_current_step() else None,
-                    "is_cancelled": entity.is_cancelled,
+                    "status": str(entity.status),
                     "created_at": entity.created_at,
                     "updated_at": entity.updated_at
                 }

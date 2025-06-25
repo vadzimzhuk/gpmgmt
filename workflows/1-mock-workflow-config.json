@@ -3,22 +3,22 @@
   "description": "Test workflow configuration for assets deployment",
   "context": {
     "ticket_number": { "type": "string", "required": true },
-    "ext-app-id": { "type": "string", "required": true }
+    "file_location": { "type": "string", "required": true }
   },
   "steps": [
     {
       "id": "first-step",
       "name": "Test first step",
-      "type": "manual",
+      "type": "automated",
       "conditions": {
       },
-      "instructions": "Please get assets from the location: {customer_id} and copy them to the git repo folder.",
+      "instructions": "In the {file_location} directory reate a .md file to store decommission process log. Use the following details to fill the file: ticket number: MEPBLD-1234; client name: VisaBank; decommission object: SDK; decommissionned channels: iOS, Android; decommission date: today",
       "completion": "User has to confirm that they copied the assets to the git repo folder."
     },
     {
       "id": "second-step",
       "name": "Assets build job",
-      "type": "manual",
+      "type": "automated",
       "conditions": {
         "status": "step_1_completed"
       },
@@ -28,7 +28,7 @@
     {
       "id": "third-step",
       "name": "Create Ask Now Ticket",
-      "type": "manual",
+      "type": "automated",
       "conditions": {
         "built-assets-location": "!null"
       },
