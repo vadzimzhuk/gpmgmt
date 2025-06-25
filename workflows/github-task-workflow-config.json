@@ -1,0 +1,40 @@
+{
+  "name": "github-task-workflow",
+  "description": "Workflow for managing a GitHub task from issue definition to pull request.",
+  "context": {
+    "ticket_number": { "type": "string", "required": true },
+    "repo_credentials": { "type": "string", "required": true }
+  },
+  "steps": [
+    {
+      "id": "define-task",
+      "name": "Define the task in GitHub issue",
+      "type": "manual",
+      "instructions": "Create a new GitHub issue describing the task using the provided ticket_number."
+    },
+    {
+      "id": "implement-task",
+      "name": "Implement the task",
+      "type": "manual",
+      "instructions": "Implement the task as described in the GitHub issue."
+    },
+    {
+      "id": "test-task",
+      "name": "Test the task",
+      "type": "manual",
+      "instructions": "Test the implemented task to ensure it meets requirements."
+    },
+    {
+      "id": "push-changes",
+      "name": "Push changes to the repo",
+      "type": "manual",
+      "instructions": "Push your changes to the repository using the provided repo_credentials."
+    },
+    {
+      "id": "create-pull-request",
+      "name": "Create pull request",
+      "type": "manual",
+      "instructions": "Create a pull request for the changes referencing the ticket_number."
+    }
+  ]
+}
