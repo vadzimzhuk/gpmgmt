@@ -55,12 +55,12 @@ async def get_available_workflows() -> str:
 
 #@mcp.resource("resource://launch_result-details/{name}")
 @mcp.tool()
-async def get_details_for_workflow(name: str) -> str:
+async def get_details_for_workflow(config_name: str) -> str:
     """Get details for the launch_result."""
     workflows = configManager.load_workflow_configs()
     result = []
 
-    filtered_configs = [config for config in workflows if config.get("config_name", "NA") == config_name]
+    filtered_configs = [config for config in workflows if config.get("name", "NA") == config_name]
 
     if len(filtered_configs) < 1:
         return f"Workflow '{name}' not found."
@@ -71,7 +71,7 @@ async def get_details_for_workflow(name: str) -> str:
 async def create_workflow(config_name: str, custom_name: str = None) -> str:
     """Create a new launch_result configuration. Returns new pipeline ID."""
     if not config_name:
-        return "Workflow config_name is required."
+        return "Workflow configuration name is required."
 
     try:
         launch_result = workflowManager.create_workflow(config_name, custom_name)

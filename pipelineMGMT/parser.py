@@ -19,6 +19,7 @@ class WorkflowParser:
         try:
             with open(file_path, 'r', encoding='utf-8') as f:
                 config = json.load(f)
+                print(config)
             return config
         except Exception as e:
             raise ValueError(f"Error parsing workflow JSON file: {e}")

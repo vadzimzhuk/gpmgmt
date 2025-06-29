@@ -44,7 +44,7 @@ class Database:
         CREATE TABLE IF NOT EXISTS workflow_entities (
             id TEXT PRIMARY KEY,
             name TEXT UNIQUE,
-            config_name TEXT NOT NULL,
+            name TEXT NOT NULL,
             description TEXT,
             status TEXT NOT NULL DEFAULT 'PENDING',
             created_at TEXT NOT NULL,

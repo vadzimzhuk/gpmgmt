@@ -43,7 +43,8 @@ class WorkflowManager:
             config = next((config for config in self.load_workflow_configs() if config.get("name") == workflow_config_name), None)
 
             entity = self.db_manager.create_workflow_entity(
-                config, name=custom_name
+                config,
+                name=custom_name
             )
             
             # Generate a description if not provided
