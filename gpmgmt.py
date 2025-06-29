@@ -3,10 +3,34 @@ from helpers import make_nws_request, format_alert
 from pipelineMGMT.manager import WorkflowManager
 from pipelineMGMT.configManager import ConfigManager
 from mcp.server.fastmcp.prompts.prompt_manager import Prompt
+# from fastapi import FastAPI, WebSocket
 
 mcp = FastMCP("gpmgmt")
 workflowManager = WorkflowManager()
 configManager = ConfigManager()
+
+# myapi = FastAPI()
+
+# SOCKETS
+# @myapi.websocket("/ws")
+# async def websocket_endpoint(websocket: WebSocket):
+#     await websocket.accept()
+#     while True:
+#         data = await websocket.receive_text()
+#         try:
+#             message = json.loads(data)
+#             action = message.get("action")
+#             payload = message.get("payload", {})
+
+#             if action == "get_workflows":
+#                 workflows = configManager.load_workflow_configs()
+#                 await websocket.send_json({"type": "workflows", "data": workflows})
+#             elif action == "ping":
+#                 await websocket.send_json({"type": "pong"})
+#             else:
+#                 await websocket.send_json({"type": "error", "message": "Unknown action"})
+#         except Exception as e:
+#             await websocket.send_json({"type": "error", "message": str(e)})
 
 # PROMPTS
 @mcp.prompt()
@@ -36,7 +60,7 @@ async def get_details_for_workflow(name: str) -> str:
     workflows = configManager.load_workflow_configs()
     result = []
 
-    filtered_configs = [config for config in workflows if config.get("name", "NA") == name]
+    filtered_configs = [config for config in workflows if config.get("config_name", "NA") == config_name]
 
     if len(filtered_configs) < 1:
         return f"Workflow '{name}' not found."
@@ -44,14 +68,14 @@ async def get_details_for_workflow(name: str) -> str:
     return f"{filtered_configs[0]}\n"
 
 @mcp.tool()
-async def create_workflow(name: str, description: str = None, config_name: str = None) -> str:
+async def create_workflow(config_name: str, custom_name: str = None) -> str:
     """Create a new launch_result configuration. Returns new pipeline ID."""
-    if not name:
-        return "Workflow name is required."
+    if not config_name:
+        return "Workflow config_name is required."
 
     try:
-        launch_result = workflowManager.create_workflow(name, description, config_name)
-        # return f"""Workflow '{launch_result["name"]}' has been successfully created with the following details: {launch_result}"""
+        launch_result = workflowManager.create_workflow(config_name, custom_name)
+        # return f"""Workflow '{launch_result["config_name"]}' has been successfully created with the following details: {launch_result}"""
     
         return f"""{launch_result["id"]}""" #tmp
     except ValueError as e:

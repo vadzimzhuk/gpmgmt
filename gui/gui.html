@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Workflows Viewer</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 2em; }
+        h1 { color: #333; }
+        table { border-collapse: collapse; width: 100%; margin-top: 1em; }
+        th, td { border: 1px solid #ccc; padding: 8px; text-align: left; }
+        th { background: #f0f0f0; }
+    </style>
+</head>
+<body>
+    <h1>Workflows</h1>
+    <button onclick="loadWorkflows()">Refresh</button>
+    <table id="workflows-table">
+        <thead>
+            <tr>
+                <!-- <th>ID</th> -->
+                <th>Name</th>
+                <th>Description</th>
+                <th>Context</th>
+                <th>Steps</th>
+                <th>Creation Date</th>
+                <th>Update Date</th>
+                <th>Status</th>
+            </tr>
+        </thead>
+        <tbody id="workflows-body">
+            <!-- Data will be inserted here -->
+        </tbody>
+    </table>
+    <script>
+    async function loadWorkflows() {
+        const tbody = document.getElementById('workflows-body');
+        tbody.innerHTML = '<tr><td colspan="3">Loading...</td></tr>';
+        try {
+            const response = await fetch('http://localhost:8000/workflows');
+            console.log(response);
+            const workflows = await response.json();
+            tbody.innerHTML = '';
+            if (workflows.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="3">No workflows found.</td></tr>';
+            } else {
+                for (const wf of workflows) {
+                    wfsteps = parseSteps(wf.steps);
+                    wfcontext = parseContext(wf.context);
+                    // wfsteps = wf.steps ? wf.steps.join(', ') : 'NA';
+                    tbody.innerHTML += `<tr>
+                        <td>${wf.name}</td>
+                        <td>${wf.description}</td>
+                        <td style="max-width: 200px;">${wfcontext}</td>
+                        <td style="min-width: 150px;">${wfsteps}</td>
+                        <td>${new Date(wf.creation_date).toLocaleString()}</td>
+                        <td>${new Date(wf.update_date).toLocaleString()}</td>
+                        <td>${getStatusIcon(wf.status)}</td>
+                        </tr>`;
+                }
+            }
+        } catch (err) {
+            tbody.innerHTML = `<tr><td colspan="3" style="color:red;">Error: ${err}</td></tr>`;
+        }
+    }
+
+    function parseContext(contextStr) {
+        try {
+            const context = JSON.parse(contextStr);
+            return Object.entries(context).map(([key, value]) => `<div><li><strong>${key}:</strong> ${value}</li></div>`).join('');
+        } catch (e) {
+            console.error('Failed to parse context:', e);
+            return 'NA';
+        }
+    }
+
+    function parseSteps(stepsStr) {
+        try {
+            step = JSON.parse(stepsStr);
+            return step.map(step => `<div> <li>${step.name} ${getStatusIcon(step.status)}</li></div>`).join('');
+        } catch (e) {
+            console.error('Failed to parse steps:', e);
+            return [];
+        }
+    }
+
+    function getStatusIcon(status) {
+        switch (status) {
+            case 'created': return '🆕';
+            case 'completed': return '✅';
+            case 'pending': return '⏳';
+            case 'running': return '⏳';
+            case 'cancelled': return '❌';
+            case 'error': return '⚠️';
+            case 'in_progress': return '⏳';
+            case 'failed': return '❌';
+            default: return '⚠️';
+        }
+    }
+
+    window.onload = loadWorkflows;
+    </script>
+</body>
+</html>

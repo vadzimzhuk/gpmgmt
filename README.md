@@ -1,6 +1,6 @@
-# GP-MGMT: General Purpose Pipeline Management
+# GPO-NGN: Generic Pipelines Orchestration Engine
 
-GP-MGMT is an MCP (Model Context Protocol) server that manages general purpose pipelines and workflows. It was designed to handle operational workflows that contain different multistep flows and require many services to work together.
+GPO-NGN is an MCP (Model Context Protocol) server that manages general purpose pipelines and workflows. It was designed to handle operational workflows that contain different multistep flows and require many services to work together.
 
 ## Overview
 
