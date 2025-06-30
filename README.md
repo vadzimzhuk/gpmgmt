@@ -102,21 +102,12 @@ Workflows are defined in JSON configuration files located in the `workflows` dir
     {
       "id": "get-assets",
       "name": "Get Assets for Deployment",
-      "type": "manual",
-      "conditions": {
-        "assets-location": "!null",
-        "ext-app-id": "!null"
-      },
       "instructions": "Please get assets from the location: {customer_id} and copy them to the git repo folder.",
       "completion": "User has to confirm that they copied the assets to the git repo folder."
     },
     {
       "id": "run-build-job",
       "name": "Assets build job",
-      "type": "manual",
-      "conditions": {
-        "status": "step_1_completed"
-      },
       "instructions": "Please run the build job for the assets in the git repo folder then provide it to build-assets-location property.",
       "completion": "built-assets-location != null"
     }
@@ -131,6 +122,8 @@ Workflows are defined in JSON configuration files located in the `workflows` dir
 - **Automated Steps**: Execute actions automatically using MCP servers
 
 ### Step Conditions
+
+=== TO BE IMPLEMENTED ===
 
 Steps can have conditions that determine when they should be executed. Conditions are based on workflow context and can include:
 

@@ -20,14 +20,22 @@ DB_PATH = "workflows.db"
 def get_workflows():
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
-    # Adjust the table/columns as needed for your schema
     cursor.execute("SELECT id, name, description, context, steps, created_at, updated_at, status FROM workflow_entities")
     # cursor.execute("SELECT * FROM workflow_entities")
     rows = cursor.fetchall()
-    print(rows)
+
     conn.close()
+    
     workflows = [
-        {"name": row[1], "description": row[2], "context": row[3], "steps": row[4], "creation_date": row[5], "update_date": row[6], "status": row[7]} for row in rows
+        {
+            "name": row[1],
+            "description": row[2], 
+            "context": row[3], 
+            "steps": row[4], 
+            "creation_date": row[5], 
+            "update_date": row[6], 
+            "status": row[7]
+         } for row in rows
     ]
     return workflows
 

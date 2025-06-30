@@ -2,32 +2,26 @@
   "name": "01 Test workflow config",
   "description": "Test workflow configuration for assets deployment",
   "context": {
-    "ticket_number": { "type": "string", "required": true },
-    "file_location": { "type": "string", "required": true },
-    "configurations_location": { "type": "string", "required": true }
+    "ticket_number": "",
+    "file_location": "",
+    "configurations_location": ""
   },
   "steps": [
     {
       "id": "first-step",
       "name": "Test first step",
-      "type": "automated",
-      "conditions": {},
-      "instructions": "In the {file_location} directory reate a .md file to store decommission process log. Use the following details to fill the file: ticket number: 'Test-ticket_01'; client name: VisaBank; decommission object: SDK; decommissionned channels: iOS, Android; decommission date: today",
+      "instructions": "In the {contex.file_location} directory reate a .md file to store decommission process log. Use the following details to fill the file: ticket number: 'Test-ticket_01'; client name: VisaBank; decommission object: SDK; decommissionned channels: iOS, Android; decommission date: today",
       "completion": "User has to confirm that they copied the assets to the git repo folder."
     },
     {
       "id": "second-step",
       "name": "workflow-creation",
-      "type": "automated",
-      "conditions": {},
       "instructions": "Create a workflow configuration file in the {configurations_location} directory with the following requirements: 1.  the same structure as '01 Test workflow config' workflow config; 2. the following steps should be described: define the task in github issue, implement the task, test the task, push changes to the repo, create pull request; 3. the context should contain the following properties: ticket_number, repo_credentials.",
       "completion": "User confirms successful merge of the pull request and that the workflow configuration file is created in the {configurations_location} directory."
     },
     {
       "id": "third-step",
       "name": "Summary of the workflow",
-      "type": "automated",
-      "conditions": {},
       "instructions": "Create a summary of the workflow in {file_location} containing all information from the pipeline including start and completion dates, context parameters values and steps executed.",
       "completion": "User has to confirm summary file existing."
     }

@@ -3,7 +3,7 @@ Executor for pipeline steps.
 """
 
 import string
-from db.models import StepStatus, StepType
+from db.models import StepStatus
 
 class WorkflowExecutor:
     """Executor for workflow steps."""
@@ -26,7 +26,7 @@ class WorkflowExecutor:
         entity = execution["entity"]
         print("execSTATUS:" + str(entity.status))
         step = execution["step"]
-        step_type = execution["type"]
+        # step_type = execution["type"]
 
         # For manual steps, return instructions
         # if step_type == StepType.MANUAL:
@@ -82,7 +82,7 @@ class WorkflowExecutor:
         return {
             "entity": entity,
             "step": workflow_step,
-            "type": workflow_step.step_type,
+            # "type": workflow_step.step_type,
             "instructions": workflow_step.instructions
             # "action": workflow_step.action if workflow_step.step_type == StepType.AUTOMATED else None
         }
@@ -144,7 +144,6 @@ class WorkflowExecutor:
 
         for step in entity.steps:
             print(f"• {step.name}: ({step.status})")
-        # print("Context:" + entity.context)
 
         entity.save()
         return entity
@@ -169,7 +168,7 @@ class WorkflowExecutor:
             return text
 
         # Create a formatter with custom braces
-        formatter = string.Formatter()
+        # formatter = string.Formatter()
         
         # Replace {param} with actual values
         formatted_text = text

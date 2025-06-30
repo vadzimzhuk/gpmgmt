@@ -36,19 +36,17 @@ class DatabaseManager:
         context = config.get("context", {})
         steps = []
         
-        # Initialize steps from config
         for step_config in config["steps"]:
             step = WorkflowStep.from_config(step_config)
             steps.append(step)
             print(step.name)
 
-        # Create the workflow entity
         entity = WorkflowEntity(
             db=self.db,
             name=name,
             config_name=config["name"],
             description=config["description"],
-            # context=config["context"],
+            context=config["context"],
             steps=steps
         )
         
@@ -57,7 +55,7 @@ class DatabaseManager:
         return entity
     
     def set_step_status(self, pipelineId, stepId, status):
-        #check if step is eligible to be run
+        #TODO: check if step is eligible to be run
         pipeline = self.get_workflow_entity(pipelineId)
         if not pipeline:
             raise ValueError(f"Workflow entity '{pipelineId}' not found")

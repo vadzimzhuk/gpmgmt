@@ -11,11 +11,6 @@ from enum import Enum
 from dataclasses import dataclass
 from typing import Dict, Any, Optional, List
 
-class StepType(Enum):
-    AUTOMATED = "automated"
-    MANUAL = "manual"
-
-
 class StepStatus(Enum):
     PENDING = "pending"
     RUNNING = "running"
@@ -28,8 +23,6 @@ class StepStatus(Enum):
 class WorkflowStep:
     """Individual workflow step configuration and state"""
     name: str
-    step_type: StepType
-    conditions: Dict[str, Any]  
     instructions: str
     mcp_server_config: Optional[Dict[str, Any]] = None 
     status: StepStatus = StepStatus.PENDING
@@ -41,12 +34,9 @@ class WorkflowStep:
     
     @classmethod
     def from_config(cls, config):
-        step_type = StepType.MANUAL if config["type"] == "manual" else StepType.AUTOMATED
         
         return WorkflowStep(
             name=config["id"],
-            step_type=step_type,
-            conditions=config.get("conditions", {}),
             instructions=config.get("instructions", ""),
             mcp_server_config=config.get("action")
         )
@@ -55,8 +45,6 @@ class WorkflowStep:
         """Convert the step to a dictionary for serialization."""
         return {
             "name": self.name,
-            "step_type": self.step_type.value,
-            "conditions": self.conditions,
             "instructions": self.instructions,
             "mcp_server_config": self.mcp_server_config,
             "status": self.status.value,

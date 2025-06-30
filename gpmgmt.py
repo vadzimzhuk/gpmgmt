@@ -3,46 +3,22 @@ from helpers import make_nws_request, format_alert
 from pipelineMGMT.manager import WorkflowManager
 from pipelineMGMT.configManager import ConfigManager
 from mcp.server.fastmcp.prompts.prompt_manager import Prompt
-# from fastapi import FastAPI, WebSocket
 
 mcp = FastMCP("gpmgmt")
 workflowManager = WorkflowManager()
 configManager = ConfigManager()
 
-# myapi = FastAPI()
-
-# SOCKETS
-# @myapi.websocket("/ws")
-# async def websocket_endpoint(websocket: WebSocket):
-#     await websocket.accept()
-#     while True:
-#         data = await websocket.receive_text()
-#         try:
-#             message = json.loads(data)
-#             action = message.get("action")
-#             payload = message.get("payload", {})
-
-#             if action == "get_workflows":
-#                 workflows = configManager.load_workflow_configs()
-#                 await websocket.send_json({"type": "workflows", "data": workflows})
-#             elif action == "ping":
-#                 await websocket.send_json({"type": "pong"})
-#             else:
-#                 await websocket.send_json({"type": "error", "message": "Unknown action"})
-#         except Exception as e:
-#             await websocket.send_json({"type": "error", "message": str(e)})
-
 # PROMPTS
 @mcp.prompt()
 def execute_pipeline_step(pipeline_id: str, step_name: str = None) -> str:
     """Automatically execute the step of the pipeline. If step_id is not provided, the current step will be executed."""
-    return f"Please call 'get_execution_instructions' tool to get instructions for execution of the step with name {step_name} or current step of the following pipeline:\n\n{pipeline_id}. Then ignoring the step type try to execute the instructions provided in the response on your own.\n\n"
+    return f"Please call 'get_execution_instructions' tool to get instructions for execution of the step with name {step_name} or current step of the following pipeline:\n\n{pipeline_id}. Then ignoring the step type execute the instructions provided in the response on your own. If you don't have enough tools such as MCP Servers to complete this - please indicate that.\n\n"
 
 # PIPELINE MGMT TOOLS
 #@mcp.resource("resource://available-workflows")
 @mcp.tool()
 async def get_available_workflows() -> str:
-    """Get a list of available workflows."""
+    """Get a list of available workflow configurations. Based on the workflow configuration files in the workflows directory pipelines are created."""
     workflows = configManager.load_workflow_configs()
     result = []
 
@@ -58,25 +34,28 @@ async def get_available_workflows() -> str:
 async def get_details_for_workflow(config_name: str) -> str:
     """Get details for the launch_result."""
     workflows = configManager.load_workflow_configs()
-    result = []
 
     filtered_configs = [config for config in workflows if config.get("name", "NA") == config_name]
 
     if len(filtered_configs) < 1:
-        return f"Workflow '{name}' not found."
+        return f"Workflow '{config_name}' not found."
+    elif len(filtered_configs) > 1:
+        return f"Multiple workflows found with the name '{config_name}'. Please specify a unique name."
     
     return f"{filtered_configs[0]}\n"
 
 @mcp.tool()
-async def create_workflow(config_name: str, custom_name: str = None) -> str:
-    """Create a new launch_result configuration. Returns new pipeline ID."""
+async def create_pipeline(config_name: str, custom_name: str) -> str:
+    """Create new pipeline based on workflow congiguration with the provided config_name. If succeeded, returns new pipeline ID."""
     if not config_name:
         return "Workflow configuration name is required."
+    
+    if not custom_name:
+        return "Custom name for the pipeline is required."
 
     try:
         launch_result = workflowManager.create_workflow(config_name, custom_name)
-        # return f"""Workflow '{launch_result["config_name"]}' has been successfully created with the following details: {launch_result}"""
-    
+
         return f"""{launch_result["id"]}""" #tmp
     except ValueError as e:
         return f"Error creating launch_result: {str(e)}"
@@ -85,88 +64,70 @@ async def create_workflow(config_name: str, custom_name: str = None) -> str:
 
 #@mcp.resource("resource://active-pipelines")
 @mcp.tool()
-async def list_workflows() -> str:
+async def list_active_pipelines() -> str:
     """List all active pipelines(workflows)."""
-    workflows = workflowManager.list_workflows()
-    if not workflows:
-        return "No active workflows found."
+    pipelines = workflowManager.list_workflows()
+
+    if not pipelines:
+        return "No active pipelines found."
     
     result = []
-    for wf in workflows:
+    for wf in pipelines:
         result.append(f"{wf['id']}: {wf['name']} - {wf['status']}")
         result.append(f"Current step: {wf['current_step']}")
     
     return "\n".join(result)
 
 @mcp.tool()
-async def launch_workflow(pipepline_id: str) -> str:
-    """Launch a launch_result with the given name. Try to execute the instructions returned in the response."""
+async def launch_pipeline(pipepline_id: str) -> str:
+    """Launch pipeline with the given name. Then execute the instructions for the first step returned in the response."""
 
     try:
         launch_result = workflowManager.launch_workflow(pipepline_id)
-        # print(str(launch_result["current_step"]))
-        print(f"Workflow state: {launch_result['status']}")
-        print(f"Current step: {launch_result['current_step']}")
-        # return f"""Workflow '{launch_result["name"]}' launched successfully. Current step is: {launch_result["current_step"]}."""
         
         return f"""The following instructions to be executed: {launch_result["step_execution"]["instructions"]}"""
-        # return {
-        #     "id": launch_result["id"],
-        #     "name": launch_result["name"],
-        #     "current_step": launch_result["current_step"],
-        #     "step_execution": launch_result["step_execution"]#,
-        #     # "steps": launch_result["steps"]
-        # }
     
-        # The current step is: {launch_result["name"]} of type {launch_result["step_execution"]["type"]}.
-        # The following instructions are to be followed: \n {launch_result["step_execution"]["instructions"]}"""
     except ValueError as e:
-        return f"Error launching launch_result: {str(e)}"
+        return f"Error launching pipeline: {str(e)}"
     except Exception as e:
         return f"Unexpected error: {str(e)}"
     
 @mcp.tool()
-async def update_workflow(pipepline_id: str, context: dict = None) -> str:
-    """Update an existing launch_result with the given name and context."""
+async def update_pipeline_context(pipepline_id: str, context: dict = None) -> str:
+    """Update pipeline context."""
     if context is None:
         context = {}
 
     try:
-        launch_result = workflowManager.update_workflow(pipepline_id, context)
-        return f"""Workflow '{launch_result["name"]}' updated successfully."""
+        update_result = workflowManager.update_workflow(pipepline_id, context)
+        return f"""Pipeline '{update_result["name"]}' updated successfully."""
     except ValueError as e:
-        return f"Error updating launch_result: {str(e)}"
+        return f"Error updating pipeline: {str(e)}"
     except Exception as e:
         return f"Unexpected error: {str(e)}"
     
 @mcp.tool()
-async def cancel_workflow(pipepline_id: str, reason: str = None) -> str:
-    """Cancel a launch_result with the given name."""
+async def cancel_pipeline(pipepline_id: str, reason: str = None) -> str:
+    """Cancel pipeline with the reason(optional)."""
     try:
-        launch_result = workflowManager.cancel_workflow(pipepline_id, reason)
-        return f"""Workflow '{launch_result["name"]}' has been cancelled successfully."""
+        cancel_result = workflowManager.cancel_workflow(pipepline_id, reason)
+        return f"""Pipeline '{cancel_result["name"]}' has been cancelled successfully."""
     except ValueError as e:
-        return f"Error cancelling launch_result: {str(e)}"
+        return f"Error cancelling pipeline: {str(e)}"
     except Exception as e:
         return f"Unexpected error: {str(e)}"
     
 # PIPELINE MGMT TOOLS
 @mcp.tool()
 async def get_execution_instructions(pipepline_id: str, step_id: str = None) -> str:
-    """Get execution instructions for the step in the pipeline. Current step will be executed if step_id is not provided."""
+    """Get execution instructions for the step in the pipeline. Current step instructions will be returned if step_id is not provided."""
     try:
         execution = workflowManager.execute_workflow_step(pipepline_id, step_id)
         if "error" in execution:
             return f"Error executing step: {execution['error']}"
         
-        return f"Please try to execute the instructions provided in the response: {execution} on your own.\n\n"
+        return f"Execute on your own the instructions provided in the response: {execution}.\n\n"
         
-        # if execution["type"] == "manual":
-        #     return f"""Manual step '{execution['step_id']}' requires your attention. Instructions: {execution['instructions']}"""
-        # elif execution["type"] == "automated":
-        #     return f"""Automated step '{execution['step_id']}' executed successfully."""
-        # else:
-        #     return "Unknown step type."
     except ValueError as e:
         return f"Error executing launch_result step: {str(e)}"
     except Exception as e:

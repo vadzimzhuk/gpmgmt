@@ -37,7 +37,7 @@ class WorkflowParser:
     @staticmethod
     def validate_workflow_config(config):
         """Validate a workflow configuration."""
-        # Check required fields
+
         if not isinstance(config, dict):
             raise ValueError("Workflow configuration must be a dictionary")
 
@@ -51,12 +51,12 @@ class WorkflowParser:
             raise ValueError("Workflow configuration must have steps as a list")
 
         # Validate context
-        for param_name, param_config in config["context"].items():
-            if not isinstance(param_config, dict):
-                raise ValueError(f"Parameter '{param_name}' configuration must be a dictionary")
+        # for param_name, param_config in config["context"].items():
+            # if not isinstance(param_config, dict):
+            #     raise ValueError(f"Parameter '{param_name}' configuration must be a dictionary")
 
-            if "type" not in param_config:
-                raise ValueError(f"Parameter '{param_name}' must have a type")
+            # if "type" not in param_config:
+            #     raise ValueError(f"Parameter '{param_name}' must have a type")
 
         # Validate steps
         step_ids = set()
@@ -70,28 +70,6 @@ class WorkflowParser:
             if step["id"] in step_ids:
                 raise ValueError(f"Duplicate step id: {step['id']}")
             step_ids.add(step["id"])
-
-            if "type" not in step:
-                raise ValueError(f"Step '{step['id']}' must have a type")
-
-            if step["type"] not in ["manual", "automated"]:
-                raise ValueError(f"Step '{step['id']}' type must be 'manual' or 'automated'")
-
-            # if step["type"] == "manual" and "instructions" not in step:
-            #     raise ValueError(f"Manual step '{step['id']}' must have instructions")
-
-            # if step["type"] == "automated":
-            #     if "action" not in step:
-            #         raise ValueError(f"Automated step '{step['id']}' must have an action")
-
-            #     if not isinstance(step["action"], dict):
-            #         raise ValueError(f"Step '{step['id']}' action must be a dictionary")
-
-            #     action = step["action"]
-            #     if "server" not in action:
-            #         raise ValueError(f"Step '{step['id']}' action must have a server")
-            #     if "tool" not in action:
-            #         raise ValueError(f"Step '{step['id']}' action must have a tool")
 
         return True
 
@@ -107,6 +85,7 @@ class WorkflowParser:
                 file_path = os.path.join(directory, filename)
                 try:
                     config = WorkflowParser.parse_json_file(file_path)
+
                     if WorkflowParser.validate_workflow_config(config):
                         configs.append(config)
                 except Exception as e:

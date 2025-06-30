@@ -10,7 +10,7 @@ from datetime import datetime
 from enum import Enum
 from dataclasses import dataclass
 # from typing import Dict, Any, Optional, List
-from db.workflowStep import WorkflowStep, StepType, StepStatus
+from db.workflowStep import WorkflowStep, StepStatus
 # from db.database import Database
 
 class WorkflowStatus(Enum):
@@ -48,8 +48,6 @@ class WorkflowEntity:
         for step in self.steps:
             step_dict = {
                 "name": step.name,
-                "step_type": step.step_type.value,
-                "conditions": step.conditions,
                 "instructions": step.instructions,
                 "mcp_server_config": step.mcp_server_config,
                 "status": step.status.value,
@@ -101,7 +99,6 @@ class WorkflowEntity:
         for step in self.steps:
             step_dict = {
                 "name": step.name,
-                "type": step.step_type.value,
                 "status": step.status.value,
                 "instructions": step.instructions,
                 "result": step.result,
@@ -241,8 +238,6 @@ class WorkflowEntity:
             for step_data in steps_data:
                 step = WorkflowStep(
                     name=step_data["name"],
-                    step_type=StepType(step_data["step_type"]),
-                    conditions=step_data["conditions"],
                     instructions=step_data["instructions"],
                     mcp_server_config=step_data.get("mcp_server_config"),
                     status=StepStatus(step_data["status"]),

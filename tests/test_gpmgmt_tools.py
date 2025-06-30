@@ -6,7 +6,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 import asyncio
 from pipelineMGMT.manager import WorkflowManager
-from gpmgmt import get_available_workflows, get_details_for_workflow, launch_workflow, create_workflow, execute_pipeline_step, complete_pipeline_current_step, update_workflow
+from gpmgmt import get_available_workflows, get_details_for_workflow, launch_pipeline, create_pipeline, execute_pipeline_step, complete_pipeline_current_step, update_pipeline_context
 
 
 async def main():
@@ -36,7 +36,7 @@ async def main():
 
     # Workflow creation
     print("Testing create_workflow('Test Workflow', 'Test workflow #1')...")
-    creation_result = await create_workflow("01 Test workflow config", "Test workflow #1")
+    creation_result = await create_pipeline("01 Test workflow config", "Test workflow #1")
     print("Pipeline created with id:" + str(creation_result))
     if not creation_result:
         print("❌")
@@ -55,7 +55,7 @@ async def main():
 
     # Launch the workflow
     print(f"Testing launch_workflow('{str(creation_result)}')...")
-    launch_result = await launch_workflow(str(creation_result))
+    launch_result = await launch_pipeline(str(creation_result))
 
     print("Pipeline has been launched")
     # print("Pipeline has been launched: " + launch_result["name"])
@@ -71,7 +71,7 @@ async def main():
         "file_name": "test_file.txt"
     }
 
-    update_workflow_result = await update_workflow(str(creation_result), context)
+    update_workflow_result = await update_pipeline_context(str(creation_result), context)
     print("Workflow updated with context: " + str(update_workflow_result))
     
     complete_result = await complete_pipeline_current_step(str(creation_result))

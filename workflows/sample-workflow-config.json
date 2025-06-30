@@ -11,41 +11,24 @@
     {
       "id": "get-assets",
       "name": "Get Assets for Deployment",
-      "type": "automatic",
-      "conditions": {
-        "assets-location": "!null",
-        "ext-app-id": "!null"
-      },
       "instructions": "Please get assets from the location: {customer_id} and copy them to the git repo folder.",
       "completion": "User has to confirm that they copied the assets to the git repo folder."
     },
     {
       "id": "run-build-job",
       "name": "Assets build job",
-      "type": "automatic",
-      "conditions": {
-        "status": "step_1_completed"
-      },
       "instructions": "Please run the build job for the assets in the git repo folder then provide it to build-assets-location property.",
       "completion": "built-assets-location != null"
     },
     {
       "id": "ask-now-ticket",
       "name": "Create Ask Now Ticket",
-      "type": "automatic",
-      "conditions": {
-        "built-assets-location": "!null"
-      },
       "instructions": "Please create an Ask Now ticket with the provided ticket number: {ticket_number} and ensure the built assets are attached.",
       "completion": "User has to confirm that they created the Ask Now ticket with the built assets attached."
     },
     {
       "id": "email-notification",
       "name": "Notify Customer via Email",
-      "type": "manual",
-      "conditions": {
-        "askNow_ticket_number": "!null"
-      },
       "instructions": "Please notify the customer via email about the Ask Now ticket created with ticket number: {ticket_number}.",
       "completion": "User has to confirm that they notified the customer via email."
     }

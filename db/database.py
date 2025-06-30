@@ -57,18 +57,6 @@ class Database:
         )
         ''')
 
-        # Create workflow_configs table
-        # self.cursor.execute('''
-        # CREATE TABLE IF NOT EXISTS workflow_configs (
-        #     name TEXT PRIMARY KEY,
-        #     description TEXT,
-        #     context TEXT NOT NULL,
-        #     steps TEXT NOT NULL,
-        #     created_at TEXT NOT NULL,
-        #     updated_at TEXT NOT NULL
-        # )
-        # ''')
-
         self.conn.commit()
 
     def close(self):
