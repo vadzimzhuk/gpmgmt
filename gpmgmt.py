@@ -158,6 +158,20 @@ async def complete_pipeline_current_step(pipepline_id) -> str:
         return f"Error completing step: {str(e)}"
     except Exception as e:
         return f"Unexpected error: {str(e)}"
+    
+@mcp.tool()
+async def get_pipeline_logs(pipeline_id: str) -> str:
+    """Return logs from pipeline entity (WorkflowEntity) stored in db."""
+    try:
+        entity = workflowManager.db_manager.get_workflow_entity(pipeline_id)
+        if not entity:
+            return f"Pipeline with id {pipeline_id} not found."
+        logs = entity.logs
+        if not logs:
+            return "No logs found for this pipeline."
+        return "\n".join(f"[{log['timestamp']}] {log['level']}: {log['message']}" for log in logs)
+    except Exception as e:
+        return f"Error retrieving logs: {str(e)}"
 
 if __name__ == "__main__":
     mcp.run(transport='stdio')
